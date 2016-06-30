@@ -215,6 +215,7 @@ struct gendisk {
 	struct kobject integrity_kobj;
 #endif	/* CONFIG_BLK_DEV_INTEGRITY */
 	int node_id;
+	int is_emmc;
 	struct badblocks *bb;
 };
 
