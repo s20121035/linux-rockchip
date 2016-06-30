@@ -309,6 +309,10 @@
 	status = "okay";
 };
 
+&rga {
+    status = "okay";
+};
+
 &i2c2 {
 	status = "okay";
 };
