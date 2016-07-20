@@ -250,6 +250,10 @@
 	status = "okay";
 };
 
+&rga {
+	status = "okay";
+};
+
 &vopb {
 	status = "okay";
 };

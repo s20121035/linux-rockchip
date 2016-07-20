@@ -1505,9 +1505,6 @@ CONFIG_MWIFIEX=m
 CONFIG_MWIFIEX_USB=m
 # CONFIG_CW1200 is not set
 # CONFIG_BCMDHD is not set
-# CONFIG_BCMDHD_SDIO is not set
-# CONFIG_BCMDHD_OOB is not set
-# CONFIG_BCMDHD_SDIO_IRQ is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
@@ -2483,6 +2480,7 @@ CONFIG_DRM_DW_HDMI=y
 # CONFIG_DRM_VGEM is not set
 # CONFIG_DRM_EXYNOS is not set
 CONFIG_DRM_ROCKCHIP=y
+CONFIG_ROCKCHIP_DRM_RGA=y
 CONFIG_ROCKCHIP_DW_HDMI=y
 # CONFIG_ROCKCHIP_EDP is not set
 # CONFIG_ROCKCHIP_LVDS is not set

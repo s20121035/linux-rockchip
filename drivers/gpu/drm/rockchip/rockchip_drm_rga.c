@@ -883,6 +883,13 @@ static int rga_probe(struct platform_device *pdev)
 	subdrv->close = rockchip_rga_close;
 
 	rockchip_register_subdrv(subdrv);
+	if (ret < 0) {
+		dev_err(rga->dev, "failed to register drm RGA device\n");
+		goto err_put_clk;
+	}
+
+	dev_info(rga->dev, "The rockchip RGA(ver %d.%d) successfully probed\n",
+			rga->version.major, rga->version.minor);
 
 	return 0;
 
