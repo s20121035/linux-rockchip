@@ -168,6 +168,24 @@
 		rockchip,grf = <&grf>;
 		wifi-supply = <&vcc_18>;
 	};
+
+	board-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+
+		work {
+			label = "System";
+			linux,default-trigger = "timer";
+			default-state = "on";
+			gpios = <&gpio7 2 GPIO_ACTIVE_HIGH>;
+		};
+		fan {
+			label = "Fan";
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+			gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };
 
 &cpu0 {
@@ -622,6 +640,15 @@
 
 		vtl_irq: vtl-irq {
 			rockchip,pins = <7 6 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+	leds {
+		work_led: work-led {
+			rockchip,pins = <7 2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		fan_led: fan-led {
+			rockchip,pins = <0 18 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
