@@ -132,7 +132,7 @@ static void rga_init_cmdlist(struct rockchip_rga *rga)
 
 	node = rga->cmdlist_node;
 
-	for (nr = 0; nr < ARRAY_SIZE(rga->cmdlist_node); nr++)
+	for (nr = 0; nr < RGA_CMDLIST_NUM; nr++)
 		list_add_tail(&node[nr].list, &rga->free_cmdlist);
 }
 
@@ -174,7 +174,7 @@ static int rga_alloc_dma_buf_for_cmdlist(struct rga_runqueue_node *runqueue)
 
 		dest = cmdlist_pool_virt + RGA_CMDLIST_SIZE * 4 * count++;
 
-		for (i = 0; i < cmdlist->last / 2; i++) {
+		for (i = 0; i < cmdlist->req_nr; i++) {
 			reg = (node->cmdlist.data[2 * i] - RGA_MODE_BASE_REG);
 			if (reg > RGA_MODE_BASE_REG)
 				continue;
@@ -221,8 +221,8 @@ static int rga_check_reg_offset(struct device *dev,
 	int reg;
 	int i;
 
-	for (i = 0; i < cmdlist->last / 2; i++) {
-		index = cmdlist->last - 2 * (i + 1);
+	for (i = 0; i < cmdlist->req_nr; i++) {
+		index = 2 * i;
 		reg = cmdlist->data[index];
 
 		switch (reg) {
@@ -332,13 +332,16 @@ static int rga_map_cmdlist_gem(struct rockchip_rga *rga,
 	int fd;
 	int i;
 
-	for (i = 0; i < cmdlist->last / 2; i++) {
-		int index = cmdlist->last - 2 * (i + 1);
+	for (i = 0; i < cmdlist->req_nr; i++) {
+		int index = 2 * i;
 
 		switch (cmdlist->data[index]) {
 		case RGA_SRC_Y_RGB_BASE_ADDR | RGA_BUF_TYPE_GEMFD:
 			fd = cmdlist->data[index + 1];
 			attach = rga_gem_buf_to_pages(rga, &mmu_pages, fd);
+			if (IS_ERR(attach)) {
+				return -EINVAL;
+			}
 
 			cmdlist->src_attach = attach;
 			cmdlist->src_mmu_pages = mmu_pages;
@@ -347,6 +350,8 @@ static int rga_map_cmdlist_gem(struct rockchip_rga *rga,
 		case RGA_DST_Y_RGB_BASE_ADDR | RGA_BUF_TYPE_GEMFD:
 			fd = cmdlist->data[index + 1];
 			attach = rga_gem_buf_to_pages(rga, &mmu_pages, fd);
+			if (IS_ERR(attach))
+				return -EINVAL;
 
 			cmdlist->dst_attach = attach;
 			cmdlist->dst_mmu_pages = mmu_pages;
@@ -415,7 +420,7 @@ static void rga_cmd_start(struct rockchip_rga *rga,
 static void rga_free_runqueue_node(struct rockchip_rga *rga,
 				   struct rga_runqueue_node *runqueue)
 {
-	struct rga_cmdlist_node *node;
+	struct rga_cmdlist_node *node, *n;
 
 	if (!runqueue)
 		return;
@@ -431,9 +436,12 @@ static void rga_free_runqueue_node(struct rockchip_rga *rga,
 	 * commands in run_cmdlist have been completed so unmap all gem
 	 * objects in each command node so that they are unreferenced.
 	 */
-	list_for_each_entry(node, &runqueue->run_cmdlist, list)
+	list_for_each_entry_safe(node, n, &runqueue->run_cmdlist, list) {
 		rga_unmap_cmdlist_gem(rga, node);
-	list_splice_tail_init(&runqueue->run_cmdlist, &rga->free_cmdlist);
+		list_move_tail(&node->list, &rga->free_cmdlist);
+	}
+	INIT_LIST_HEAD(&runqueue->run_cmdlist);
+	
 	mutex_unlock(&rga->cmdlist_mutex);
 
 	kmem_cache_free(rga->runqueue_slab, runqueue);
@@ -554,11 +562,12 @@ int rockchip_rga_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 		return -ENOMEM;
 
 	cmdlist = &node->cmdlist;
-	cmdlist->last = 0;
+	cmdlist->req_nr = 0;
 
 	if (req->cmd_nr > RGA_CMDLIST_SIZE || req->cmd_buf_nr > RGA_CMDBUF_SIZE) {
 		dev_err(rga->dev, "cmdlist size is too big\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto check_err;
 	}
 
 	/*
@@ -566,16 +575,33 @@ int rockchip_rga_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 	 * command have two integer, one for register offset, another for
 	 * register value.
 	 */
-	if (copy_from_user((void *)cmdlist->data, (const void __user *)req->cmd,
-			   sizeof(struct drm_rockchip_rga_cmd) * req->cmd_nr))
-		return -EFAULT;
-	cmdlist->last += req->cmd_nr * 2;
+	if (copy_from_user((void *)&cmdlist->data[cmdlist->req_nr * 2],
+			(const void __user *)req->cmd,
+			sizeof(struct drm_rockchip_rga_cmd) * req->cmd_nr)) {
+		goto check_err;
+		ret = -EFAULT;
+	}
+	cmdlist->req_nr += req->cmd_nr;
 
-	if (copy_from_user((void *)cmdlist->data + cmdlist->last,
-			   (const void __user *)req->cmd_buf,
-			   sizeof(struct drm_rockchip_rga_cmd) * req->cmd_buf_nr))
-		return -EFAULT;
-	cmdlist->last += req->cmd_buf_nr * 2;
+	if (copy_from_user((void *)&cmdlist->data[cmdlist->req_nr * 2],
+			(const void __user *)req->cmd_buf,
+			sizeof(struct drm_rockchip_rga_cmd) * req->cmd_buf_nr)) {
+		goto check_err;
+		ret = -EFAULT;
+	}
+	cmdlist->req_nr += req->cmd_buf_nr;
+
+#ifdef DEBUG
+	{
+		int i = 0;
+		for (i = 0; i < cmdlist->req_nr; i++) {
+			printk(KERN_ERR "Index: %d, CMD: 0x%08x VAL: 0x%08x\n",
+					i, cmdlist->data[2 * i],
+					cmdlist->data[2*i + 1]);
+		}
+	}
+#endif
+
 
 	/*
 	 * Check the userspace command registers, and mapping the framebuffer,
@@ -583,15 +609,23 @@ int rockchip_rga_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 	 */
 	ret = rga_check_reg_offset(rga->dev, node);
 	if (ret < 0)
-		return ret;
+		goto check_err;
 
 	ret = rga_map_cmdlist_gem(rga, node, drm_dev, file);
 	if (ret < 0)
-		return ret;
+		goto map_err;
 
 	rga_add_cmdlist_to_inuse(rga_priv, node);
 
 	return 0;
+
+map_err:
+	rga_unmap_cmdlist_gem(rga, node);
+check_err:
+	mutex_lock(&rga->cmdlist_mutex);
+	list_add_tail(&node->list, &rga->free_cmdlist);
+	mutex_unlock(&rga->cmdlist_mutex);
+	return ret;
 }
 
 /*
@@ -825,6 +859,12 @@ static int rga_probe(struct platform_device *pdev)
 					       sizeof(struct rga_runqueue_node),
 					       0, 0, NULL);
 	if (!rga->runqueue_slab)
+		return -ENOMEM;
+
+	rga->cmdlist_node = devm_kzalloc(&pdev->dev,
+			sizeof(struct rga_cmdlist_node) * RGA_CMDLIST_NUM,
+			GFP_KERNEL);
+	if (!rga->cmdlist_node)
 		return -ENOMEM;
 
 	rga->rga_workq = create_singlethread_workqueue("rga");
