@@ -1,14 +1,14 @@
 #ifndef __ROCKCHIP_DRM_RGA__
 #define __ROCKCHIP_DRM_RGA__
 
-#define RGA_CMDBUF_SIZE			64
-#define RGA_CMDLIST_SIZE		64
-#define RGA_CMDLIST_NUM			1024
+#define RGA_CMDBUF_SIZE			14
+#define RGA_CMDLIST_SIZE		0x20
+#define RGA_CMDLIST_NUM			64
 
 /* cmdlist data structure */
 struct rga_cmdlist {
 	u32		head;
-	u32		data[(RGA_CMDLIST_SIZE + RGA_CMDBUF_SIZE) * 2];
+	u32		data[RGA_CMDLIST_SIZE * 2];
 	u32		req_nr;	/* last data offset */
 	void		*src_mmu_pages;
 	void		*dst_mmu_pages;
