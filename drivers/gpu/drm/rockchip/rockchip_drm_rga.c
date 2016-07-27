@@ -296,9 +296,9 @@ rga_gem_buf_to_pages(struct rockchip_rga *rga, void **mmu_pages, int fd)
 
 		for (p = 0; p < len; p++) {
 			dma_addr_t phys = address + (p << PAGE_SHIFT);
-			void *virt = phys_to_virt(phys);
+			//void *virt = phys_to_virt(phys);
 
-			rga_dma_flush_range(virt, 4 * 1024);
+			//rga_dma_flush_range(virt, 4 * 1024);
 			pages[mapped_size + p] = phys;
 		}
 
@@ -339,9 +339,8 @@ static int rga_map_cmdlist_gem(struct rockchip_rga *rga,
 		case RGA_SRC_Y_RGB_BASE_ADDR | RGA_BUF_TYPE_GEMFD:
 			fd = cmdlist->data[index + 1];
 			attach = rga_gem_buf_to_pages(rga, &mmu_pages, fd);
-			if (IS_ERR(attach)) {
+			if (IS_ERR(attach))
 				return -EINVAL;
-			}
 
 			cmdlist->src_attach = attach;
 			cmdlist->src_mmu_pages = mmu_pages;
@@ -412,7 +411,7 @@ static void rga_cmd_start(struct rockchip_rga *rga,
 
 	rga_write(rga, RGA_SYS_CTRL, 0x22);
 
-	rga_write(rga, RGA_INT, 0x600);
+	rga_write(rga, RGA_INT, 0x700);
 
 	rga_write(rga, RGA_CMD_CTRL, ((runqueue->cmdlist_cnt - 1) << 3) | 0x1);
 }
