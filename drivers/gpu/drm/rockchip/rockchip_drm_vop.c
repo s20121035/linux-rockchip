@@ -24,12 +24,16 @@
 #include <linux/delay.h>
 #include <linux/dma-buf.h>
 #include <linux/fence.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
+#include <linux/workqueue.h>
+
+#include <drm/rockchip_drm.h>
 
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_fb.h"
@@ -37,6 +41,8 @@
 #include "rockchip_drm_vop.h"
 
 #include <soc/rockchip/dmc-sync.h>
+
+#define VOP_GAMMA_LUT_SIZE 1024
 
 #define VOP_REG(off, _mask, s) \
 		{.offset = off, \
@@ -60,6 +66,8 @@
 
 #define VOP_WIN_GET(x, win, name) \
 		vop_read_reg(x, win->base, &win->phy->name)
+#define VOP_CTRL_GET(x, name) \
+		vop_read_reg(x, 0, &(x)->data->ctrl->name)
 
 #define VOP_WIN_GET_YRGBADDR(vop, win) \
 		vop_readl(vop, win->base + win->phy->yrgb_mst.offset)
@@ -119,6 +127,18 @@ struct vop {
 	/* physical map length of vop register */
 	uint32_t len;
 
+	void __iomem *lut_regs;
+	uint32_t lut_len;
+	uint32_t lut[VOP_GAMMA_LUT_SIZE];
+	struct work_struct load_lut_work;
+	bool lut_active;
+
+	u32 bcsh_h;
+	u32 bcsh_bcs;
+	struct mutex bcsh_mutex;
+	struct work_struct load_bcsh_work;
+	bool bcsh_active;
+
 	/* one time only one process allowed to config the register */
 	spinlock_t reg_lock;
 	/* lock vop irq reg */
@@ -173,6 +193,7 @@ struct vop_ctrl {
 	struct vop_reg out_mode;
 	struct vop_reg dither_down;
 	struct vop_reg dither_up;
+	struct vop_reg dsp_lut_en;
 	struct vop_reg pin_pol;
 
 	struct vop_reg htotal_pw;
@@ -181,6 +202,10 @@ struct vop_ctrl {
 	struct vop_reg vact_st_end;
 	struct vop_reg hpost_st_end;
 	struct vop_reg vpost_st_end;
+
+	struct vop_reg bcsh_en;
+	struct vop_reg bcsh_bcs;
+	struct vop_reg bcsh_h;
 };
 
 struct vop_scl_regs {
@@ -227,6 +252,9 @@ struct vop_win_phy {
 	struct vop_reg uv_mst;
 	struct vop_reg yrgb_vir;
 	struct vop_reg uv_vir;
+
+	struct vop_reg enable_colorkey;
+	struct vop_reg colorkey;
 
 	struct vop_reg dst_alpha_ctl;
 	struct vop_reg src_alpha_ctl;
@@ -315,6 +343,8 @@ static const struct vop_win_phy win01_data = {
 	.uv_vir = VOP_REG(WIN0_VIR, 0x3fff, 16),
 	.src_alpha_ctl = VOP_REG(WIN0_SRC_ALPHA_CTRL, 0xff, 0),
 	.dst_alpha_ctl = VOP_REG(WIN0_DST_ALPHA_CTRL, 0xff, 0),
+	.colorkey = VOP_REG(WIN0_COLOR_KEY, 0x3fffffff, 0),
+	.enable_colorkey = VOP_REG(WIN0_COLOR_KEY, 0x1, 31),
 };
 
 static const struct vop_win_phy win23_data = {
@@ -329,6 +359,8 @@ static const struct vop_win_phy win23_data = {
 	.yrgb_vir = VOP_REG(WIN2_VIR0_1, 0x1fff, 0),
 	.src_alpha_ctl = VOP_REG(WIN2_SRC_ALPHA_CTRL, 0xff, 0),
 	.dst_alpha_ctl = VOP_REG(WIN2_DST_ALPHA_CTRL, 0xff, 0),
+	.colorkey = VOP_REG(WIN2_COLOR_KEY, 0xffffff, 0),
+	.enable_colorkey = VOP_REG(WIN2_COLOR_KEY, 0x1, 24),
 };
 
 static const struct vop_ctrl ctrl_data = {
@@ -341,6 +373,7 @@ static const struct vop_ctrl ctrl_data = {
 	.mipi_en = VOP_REG(SYS_CTRL, 0x1, 15),
 	.dither_down = VOP_REG(DSP_CTRL1, 0xf, 1),
 	.dither_up = VOP_REG(DSP_CTRL1, 0x1, 6),
+	.dsp_lut_en = VOP_REG(DSP_CTRL1, 0x1, 0),
 	.data_blank = VOP_REG(DSP_CTRL0, 0x1, 19),
 	.out_mode = VOP_REG(DSP_CTRL0, 0xf, 0),
 	.pin_pol = VOP_REG(DSP_CTRL0, 0xf, 4),
@@ -350,6 +383,9 @@ static const struct vop_ctrl ctrl_data = {
 	.vact_st_end = VOP_REG(DSP_VACT_ST_END, 0x1fff1fff, 0),
 	.hpost_st_end = VOP_REG(POST_DSP_HACT_INFO, 0x1fff1fff, 0),
 	.vpost_st_end = VOP_REG(POST_DSP_VACT_INFO, 0x1fff1fff, 0),
+	.bcsh_en = VOP_REG(BCSH_COLOR_BAR, 0x1, 0),
+	.bcsh_bcs = VOP_REG(BCSH_BCS, 0xFFFFFFFF, 0),
+	.bcsh_h = VOP_REG(BCSH_H, 0x01FF01FF, 0),
 };
 
 static const struct vop_reg_data vop_init_reg_table[] = {
@@ -435,6 +471,16 @@ static inline void vop_mask_write_relaxed(struct vop *vop, uint32_t offset,
 		writel_relaxed(cached_val, vop->regs + offset);
 		vop->regsbak[offset >> 2] = cached_val;
 	}
+}
+
+static inline void vop_write_lut(struct vop *vop, uint32_t offset, uint32_t v)
+{
+	writel(v, vop->lut_regs + offset);
+}
+
+static inline uint32_t vop_read_lut(struct vop *vop, uint32_t offset)
+{
+	return readl(vop->lut_regs + offset);
 }
 
 static bool has_rb_swapped(uint32_t format)
@@ -704,6 +750,69 @@ static void vop_line_flag_irq_disable(struct vop *vop)
 	spin_unlock_irqrestore(&vop->irq_lock, flags);
 }
 
+static void vop_crtc_do_load_bcsh(struct vop *vop)
+{
+	spin_lock(&vop->reg_lock);
+	VOP_CTRL_SET(vop, bcsh_en, 0x1);
+	VOP_CTRL_SET(vop, bcsh_bcs, (0x3 << 30) | vop->bcsh_bcs);
+	VOP_CTRL_SET(vop, bcsh_h, vop->bcsh_h);
+	vop_cfg_done(vop);
+	spin_unlock(&vop->reg_lock);
+}
+
+static void vop_crtc_do_load_lut(struct vop *vop)
+{
+	int i, dle;
+
+	spin_lock(&vop->reg_lock);
+	VOP_CTRL_SET(vop, dsp_lut_en, 0);
+	vop_cfg_done(vop);
+	spin_unlock(&vop->reg_lock);
+
+#define CTRL_GET(name) VOP_CTRL_GET(vop, name)
+	readx_poll_timeout(CTRL_GET, dsp_lut_en,
+			   dle, !dle, 5, 33333);
+#undef CTRL_GET
+
+	spin_lock(&vop->reg_lock);
+	for (i = 0; i < VOP_GAMMA_LUT_SIZE; i++)
+		vop_write_lut(vop, i << 2, vop->lut[i]);
+
+	VOP_CTRL_SET(vop, dsp_lut_en, 1);
+	vop_cfg_done(vop);
+	spin_unlock(&vop->reg_lock);
+}
+
+static void vop_crtc_load_lut_worker(struct work_struct *work)
+{
+	struct vop *vop = container_of(work, struct vop, load_lut_work);
+	if (!vop->lut_active)
+		return;
+	vop_crtc_do_load_lut(vop);
+}
+
+static void vop_crtc_load_bcsh_worker(struct work_struct *work)
+{
+	struct vop *vop = container_of(work, struct vop, load_bcsh_work);
+	if (!vop->bcsh_active)
+		return;
+	vop_crtc_do_load_bcsh(vop);
+}
+
+static void vop_crtc_load_lut(struct drm_crtc *crtc)
+{
+	struct vop *vop = to_vop(crtc);
+
+	schedule_work(&vop->load_lut_work);
+}
+
+static void vop_crtc_load_bcsh(struct drm_crtc *crtc)
+{
+	struct vop *vop = to_vop(crtc);
+
+	schedule_work(&vop->load_bcsh_work);
+}
+
 static void vop_enable(struct drm_crtc *crtc)
 {
 	struct vop *vop = to_vop(crtc);
@@ -759,6 +868,11 @@ static void vop_enable(struct drm_crtc *crtc)
 	VOP_CTRL_SET(vop, standby, 0);
 
 	spin_unlock(&vop->reg_lock);
+	vop->lut_active = true;
+	vop_crtc_do_load_lut(vop);
+
+	vop->bcsh_active = true;
+	vop_crtc_do_load_bcsh(vop);
 
 	enable_irq(vop->irq);
 
@@ -796,6 +910,12 @@ static void vop_disable(struct drm_crtc *crtc)
 		wait_for_completion(&vop_win->completion);
 		complete(&vop_win->completion);
 	}
+
+	vop->lut_active = false;
+	cancel_work_sync(&vop->load_lut_work);
+
+	vop->bcsh_active = false;
+	cancel_work_sync(&vop->load_bcsh_work);
 
 	rockchip_dmc_put(&vop->dmc_nb);
 	if (vop->dmc_disabled) {
@@ -1270,6 +1390,57 @@ static int vop_disable_plane(struct drm_plane *plane)
 	return 0;
 }
 
+static int vop_set_plane_colorkey(struct drm_plane *plane,
+				  struct drm_rockchip_plane_colorkey *ck)
+{
+	struct vop_win *vop_win = to_vop_win(plane);
+	const struct vop_win_data *win = vop_win->data;
+	struct vop *vop;
+
+	if (!ck)
+		return -EINVAL;
+
+	if (!plane->crtc)
+		return -ENODEV;
+
+	vop = to_vop(plane->crtc);
+
+	if (!vop_win->vop->is_enabled)
+		return -EFAULT;
+
+	spin_lock(&vop->reg_lock);
+	VOP_WIN_SET(vop, win, enable_colorkey, ck->enabled);
+	VOP_WIN_SET(vop, win, colorkey, ck->colorkey);
+	vop_cfg_done(vop);
+	spin_unlock(&vop->reg_lock);
+
+	return 0;
+}
+
+static int vop_get_plane_colorkey(struct drm_plane *plane,
+				  struct drm_rockchip_plane_colorkey *ck)
+{
+	struct vop_win *vop_win = to_vop_win(plane);
+	const struct vop_win_data *win = vop_win->data;
+	struct vop *vop;
+
+	if (!ck)
+		return -EINVAL;
+
+	if (!plane->crtc)
+		return -ENODEV;
+
+	vop = to_vop(plane->crtc);
+
+	if (!vop_win->vop->is_enabled)
+		return -EFAULT;
+
+	ck->colorkey = VOP_WIN_GET(vop, win, colorkey);
+	ck->enabled = VOP_WIN_GET(vop, win, enable_colorkey);
+
+	return 0;
+}
+
 static void vop_plane_destroy(struct drm_plane *plane)
 {
 	vop_disable_plane(plane);
@@ -1293,6 +1464,152 @@ int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc,
 	vop->connector_out_mode = out_mode;
 
 	return 0;
+}
+
+int rockchip_drm_crtc_color_negate(struct drm_crtc *crtc, u64 negate)
+{
+	struct vop *vop = to_vop(crtc);
+	int lut_size = VOP_GAMMA_LUT_SIZE;
+	int i;
+
+	flush_work(&vop->load_lut_work);
+
+	if (negate)
+		for (i = 0; i < lut_size; i++)
+			vop->lut[lut_size - i] = (i << 20) | (i << 10) | i;
+	else
+		for (i = 0; i < lut_size; i++)
+			vop->lut[i] = (i << 20) | (i << 10) | i;
+
+	vop_crtc_load_lut(crtc);
+
+	return 0;
+}
+
+int rockchip_drm_crtc_color_brightness(struct drm_crtc *crtc, u64 brightness)
+{
+	struct vop *vop = to_vop(crtc);
+	u8 reg;
+
+	if (brightness > 0xff)
+		return -EINVAL;
+
+	if (brightness < 128)
+		reg = 0x80 | (brightness - 128);
+	else
+		reg = brightness - 128;
+
+	mutex_lock(&vop->bcsh_mutex);
+	vop->bcsh_bcs = (vop->bcsh_bcs & ~0xff) | reg;
+	mutex_unlock(&vop->bcsh_mutex);
+
+	vop_crtc_load_bcsh(crtc);
+
+	return 0;
+}
+
+int rockchip_drm_crtc_color_contrast(struct drm_crtc *crtc, u64 contrast)
+{
+	struct vop *vop = to_vop(crtc);
+
+	if (contrast > 0x1FF)
+		return -EINVAL;
+
+	mutex_lock(&vop->bcsh_mutex);
+	vop->bcsh_bcs = (vop->bcsh_bcs & ~0x1FF00) | (contrast << 8);
+	mutex_unlock(&vop->bcsh_mutex);
+
+	vop_crtc_load_bcsh(crtc);
+
+	return 0;
+}
+
+int rockchip_drm_crtc_color_saturation(struct drm_crtc *crtc, u64 saturation)
+{
+	struct vop *vop = to_vop(crtc);
+
+	if (saturation > 0x3FF)
+		return -EINVAL;
+
+	mutex_lock(&vop->bcsh_mutex);
+	vop->bcsh_bcs = (vop->bcsh_bcs & ~0x3FF00000) | (saturation << 20);
+	mutex_unlock(&vop->bcsh_mutex);
+
+	vop_crtc_load_bcsh(crtc);
+
+	return 0;
+}
+
+int rockchip_drm_crtc_color_sin_cos_hue(struct drm_crtc *crtc, u64 sin_cos_hue)
+{
+	struct vop *vop = to_vop(crtc);
+	u64 sin_hue = sin_cos_hue & ~0xFFFF;
+	u64 cos_hue = (sin_cos_hue >> 16) & ~0xFFFF;
+
+	if (sin_hue > 0x1FF || cos_hue > 0x1FF)
+		return -EINVAL;
+
+	vop->bcsh_h = sin_cos_hue;
+
+	vop_crtc_load_bcsh(crtc);
+
+	return 0;
+}
+
+int rockchip_drm_set_plane_colorkey_ioctl(struct drm_device *dev, void *data,
+					  struct drm_file *file_priv)
+{
+	struct drm_rockchip_plane_colorkey *set = data;
+	struct drm_mode_object *obj;
+	struct drm_plane *plane;
+	int ret = 0;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return -ENODEV;
+
+	drm_modeset_lock_all(dev);
+
+	obj = drm_mode_object_find(dev, set->plane_id, DRM_MODE_OBJECT_PLANE);
+	if (!obj) {
+		ret = -ENOENT;
+		goto out_unlock;
+	}
+
+	plane = obj_to_plane(obj);
+
+	ret = vop_set_plane_colorkey(plane, set);
+
+out_unlock:
+	drm_modeset_unlock_all(dev);
+	return ret;
+}
+
+int rockchip_drm_get_plane_colorkey_ioctl(struct drm_device *dev, void *data,
+					  struct drm_file *file_priv)
+{
+	struct drm_rockchip_plane_colorkey *get = data;
+	struct drm_mode_object *obj;
+	struct drm_plane *plane;
+	int ret = 0;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return -ENODEV;
+
+	drm_modeset_lock_all(dev);
+
+	obj = drm_mode_object_find(dev, get->plane_id, DRM_MODE_OBJECT_PLANE);
+	if (!obj) {
+		ret = -ENOENT;
+		goto out_unlock;
+	}
+
+	plane = obj_to_plane(obj);
+
+	ret = vop_get_plane_colorkey(plane, get);
+
+out_unlock:
+	drm_modeset_unlock_all(dev);
+	return ret;
 }
 
 static struct vop *vop_from_pipe(struct drm_device *drm, int pipe)
@@ -1816,9 +2133,20 @@ static int vop_create_crtc(struct vop *vop)
 	vop->dmc_nb.notifier_call = dmc_notify;
 	init_completion(&vop->dmc_completion);
 	init_completion(&vop->dsp_hold_completion);
+	INIT_WORK(&vop->load_lut_work, vop_crtc_load_lut_worker);
+
+	mutex_init(&vop->bcsh_mutex);
+	INIT_WORK(&vop->load_bcsh_work, vop_crtc_load_bcsh_worker);
 
 	crtc->port = port;
 	vop->pipe = crtc->index;
+
+	drm_mode_crtc_set_gamma_size(crtc, VOP_GAMMA_LUT_SIZE);
+	for (i = 0; i < VOP_GAMMA_LUT_SIZE; i++)
+		vop->lut[i] = (i << 20) | (i << 10) | i;
+
+	vop->bcsh_h = 0x01000000;
+	vop->bcsh_bcs = 0xD0010000;
 
 	return 0;
 
@@ -2024,6 +2352,12 @@ static int vop_bind(struct device *dev, struct device *master, void *data)
 	vop->regsbak = devm_kzalloc(dev, vop->len, GFP_KERNEL);
 	if (!vop->regsbak)
 		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	vop->lut_len = resource_size(res);
+	vop->lut_regs = devm_ioremap_resource(dev, res);
+	if (IS_ERR(vop->lut_regs))
+		return PTR_ERR(vop->lut_regs);
 
 	ret = vop_initial(vop);
 	if (ret < 0) {

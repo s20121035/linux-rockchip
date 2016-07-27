@@ -26,14 +26,43 @@
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_gem.h"
 
+static int check_gem_flags(unsigned int flags)
+{
+	if (flags & ~(ROCKCHIP_BO_MASK)) {
+		DRM_ERROR("invalid flags.\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int rockchip_gem_alloc_buf(struct rockchip_gem_object *rk_obj,
-				  bool alloc_kmap)
+				  unsigned int flags, bool alloc_kmap)
 {
 	struct drm_gem_object *obj = &rk_obj->base;
 	struct drm_device *drm = obj->dev;
+	enum dma_attr attr;
 
 	init_dma_attrs(&rk_obj->dma_attrs);
-	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &rk_obj->dma_attrs);
+
+	/*
+	 * if ROCKCHIP_BO_CONTIG, fully physically contiguous memory
+	 * region will be allocated else physically contiguous
+	 * as possible.
+	 */
+	if (!(flags & ROCKCHIP_BO_NONCONTIG))
+		dma_set_attr(DMA_ATTR_FORCE_CONTIGUOUS, &rk_obj->dma_attrs);
+
+	/*
+	 * if ROCKCHIP_BO_WC or ROCKCHIP_BO_NONCACHABLE, writecombine mapping
+	 * else cachable mapping.
+	 */
+	if (flags & ROCKCHIP_BO_WC || !(flags & ROCKCHIP_BO_CACHABLE))
+		attr = DMA_ATTR_WRITE_COMBINE;
+	else
+		attr = DMA_ATTR_NON_CONSISTENT;
+
+	dma_set_attr(attr, &rk_obj->dma_attrs);
 
 	if (!alloc_kmap)
 		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &rk_obj->dma_attrs);
@@ -66,11 +95,31 @@ static int rockchip_drm_gem_object_mmap(struct drm_gem_object *obj,
 	struct rockchip_gem_object *rk_obj = to_rockchip_obj(obj);
 	struct drm_device *drm = obj->dev;
 
+	ret = check_gem_flags(rk_obj->flags);
+	if (ret) {
+		drm_gem_vm_close(vma);
+		drm_gem_free_mmap_offset(obj);
+		return ret;
+	}
+
 	/*
 	 * dma_alloc_attrs() allocated a struct page table for rk_obj, so clear
 	 * VM_PFNMAP flag that was set by drm_gem_mmap_obj()/drm_gem_mmap().
+	 *
+	 * Note that, not sure whether we need to set the VM_MIXED flag for vma.
 	 */
 	vma->vm_flags &= ~VM_PFNMAP;
+	vma->vm_pgoff = 0;
+
+	/* update vm cache attr. */
+	if (rk_obj->flags & ROCKCHIP_BO_CACHABLE)
+		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+	else if (rk_obj->flags & ROCKCHIP_BO_WC)
+		vma->vm_page_prot =
+			pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+	else
+		vma->vm_page_prot =
+			pgprot_noncached(vm_get_page_prot(vma->vm_flags));
 
 	ret = dma_mmap_attrs(drm->dev, vma, rk_obj->kvaddr, rk_obj->dma_addr,
 			     obj->size, &rk_obj->dma_attrs);
@@ -117,13 +166,6 @@ rockchip_gem_prime_import_sg_table(struct drm_device *drm, size_t size,
 	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
 
-	/*
-	 * Todo: only support continuous buffer now, plan to found a method
-	 * to import non continuous with iommu.
-	 */
-	if (sgt->nents != 1)
-		return ERR_PTR(-EINVAL);
-
 	rk_obj = kzalloc(sizeof(*rk_obj), GFP_KERNEL);
 	if (!rk_obj)
 		return ERR_PTR(-ENOMEM);
@@ -131,6 +173,19 @@ rockchip_gem_prime_import_sg_table(struct drm_device *drm, size_t size,
 	obj = &rk_obj->base;
 
 	drm_gem_private_object_init(drm, obj, size);
+
+	if (sgt->nents == 1) {
+		/* always physically continuous memory if sgt->nents is 1. */
+		rk_obj->flags |= ROCKCHIP_BO_CONTIG;
+	} else {
+		/*
+		 * this case could be CONTIG or NONCONTIG type but for now
+		 * sets NONCONTIG.
+		 * TODO. we have to find a way that exporter can notify
+		 * the type of its own buffer to importer.
+		 */
+		rk_obj->flags |= ROCKCHIP_BO_NONCONTIG;
+	}
 
 	rk_obj->dma_addr = sg_dma_address(sgt->sgl);
 	rk_obj->sgt = sgt;
@@ -141,7 +196,7 @@ rockchip_gem_prime_import_sg_table(struct drm_device *drm, size_t size,
 
 struct rockchip_gem_object *
 	rockchip_gem_create_object(struct drm_device *drm, unsigned int size,
-				   bool alloc_kmap)
+				   unsigned int flags, bool alloc_kmap)
 {
 	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
@@ -149,15 +204,21 @@ struct rockchip_gem_object *
 
 	size = round_up(size, PAGE_SIZE);
 
+	ret = check_gem_flags(flags);
+	if (ret)
+		return ERR_PTR(ret);
+
 	rk_obj = kzalloc(sizeof(*rk_obj), GFP_KERNEL);
 	if (!rk_obj)
 		return ERR_PTR(-ENOMEM);
 
+	rk_obj->flags = flags;
+	rk_obj->size = size;
 	obj = &rk_obj->base;
 
 	drm_gem_private_object_init(drm, obj, size);
 
-	ret = rockchip_gem_alloc_buf(rk_obj, alloc_kmap);
+	ret = rockchip_gem_alloc_buf(rk_obj, flags, alloc_kmap);
 	if (ret)
 		goto err_free_rk_obj;
 
@@ -202,13 +263,13 @@ void rockchip_gem_free_object(struct drm_gem_object *obj)
 static struct rockchip_gem_object *
 rockchip_gem_create_with_handle(struct drm_file *file_priv,
 				struct drm_device *drm, unsigned int size,
-				unsigned int *handle)
+				unsigned int flags, unsigned int *handle)
 {
 	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
 	int ret;
 
-	rk_obj = rockchip_gem_create_object(drm, size, false);
+	rk_obj = rockchip_gem_create_object(drm, size, flags, false);
 	if (IS_ERR(rk_obj))
 		return ERR_CAST(rk_obj);
 
@@ -289,9 +350,86 @@ int rockchip_gem_dumb_create(struct drm_file *file_priv,
 		args->size = args->pitch * args->height;
 
 	rk_obj = rockchip_gem_create_with_handle(file_priv, dev, args->size,
-						 &args->handle);
+						 ROCKCHIP_BO_NONCONTIG |
+						 ROCKCHIP_BO_WC, &args->handle);
 
 	return PTR_ERR_OR_ZERO(rk_obj);
+}
+
+int rockchip_drm_gem_mmap_buffer(struct file *filp,
+				 struct vm_area_struct *vma)
+{
+	struct drm_gem_object *obj = filp->private_data;
+
+	return rockchip_gem_mmap_buf(obj, vma);
+}
+
+int rockchip_drm_gem_mmap_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv)
+{
+	struct rockchip_drm_file_private *rockchip_file_priv;
+	struct drm_rockchip_gem_mmap *args = data;
+	struct drm_gem_object *obj;
+	struct file *anon_filp;
+	unsigned int addr;
+
+	mutex_lock(&dev->struct_mutex);
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		mutex_unlock(&dev->struct_mutex);
+		return -EINVAL;
+	}
+
+	rockchip_file_priv = file_priv->driver_priv;
+	anon_filp = rockchip_file_priv->anon_filp;
+	anon_filp->private_data = obj;
+
+	addr = vm_mmap(anon_filp, 0, args->size, PROT_READ | PROT_WRITE,
+			MAP_SHARED, 0);
+
+	drm_gem_object_unreference(obj);
+
+	if (IS_ERR((void *)addr)) {
+		mutex_unlock(&dev->struct_mutex);
+		return PTR_ERR((void *)addr);
+	}
+
+	mutex_unlock(&dev->struct_mutex);
+
+	args->mapped = addr;
+
+	DRM_DEBUG_KMS("mapped = 0x%lx\n", (unsigned long)args->mapped);
+
+	return 0;
+}
+
+int rockchip_drm_gem_get_ioctl(struct drm_device *dev, void *data,
+			       struct drm_file *file_priv)
+{
+	struct rockchip_gem_object *rk_obj;
+	struct drm_rockchip_gem_info *args = data;
+	struct drm_gem_object *obj;
+
+	mutex_lock(&dev->struct_mutex);
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+	if (!obj) {
+		DRM_ERROR("failed to lookup gem object.\n");
+		mutex_unlock(&dev->struct_mutex);
+		return -EINVAL;
+	}
+
+	rk_obj = to_rockchip_obj(obj);
+
+	args->flags = rk_obj->flags;
+	args->size = rk_obj->size;
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
 }
 
 int rockchip_gem_map_offset_ioctl(struct drm_device *drm, void *data,
@@ -310,7 +448,7 @@ int rockchip_gem_create_ioctl(struct drm_device *dev, void *data,
 	struct rockchip_gem_object *rk_obj;
 
 	rk_obj = rockchip_gem_create_with_handle(file_priv, dev, args->size,
-						 &args->handle);
+						 args->flags, &args->handle);
 	return PTR_ERR_OR_ZERO(rk_obj);
 }
 

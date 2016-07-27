@@ -30,6 +30,18 @@
 struct drm_device;
 struct drm_connector;
 
+struct drm_rockchip_subdrv {
+        struct list_head list;
+        struct device *dev;
+        struct drm_device *drm_dev;
+
+        int (*open)(struct drm_device *drm_dev, struct device *dev,
+		    struct drm_file *file);
+        void (*close)(struct drm_device *drm_dev, struct device *dev,
+		      struct drm_file *file);
+};
+
+
 /*
  * Rockchip drm_file private structure.
  *
@@ -37,6 +49,7 @@ struct drm_connector;
  */
 struct rockchip_drm_file_private {
 	struct list_head		gem_cpu_acquire_list;
+	struct file			*anon_filp;
 	struct rockchip_drm_rga_private *rga_priv;
 };
 
@@ -55,24 +68,24 @@ struct rockchip_drm_private {
 	unsigned int cpu_fence_context;
 	atomic_t cpu_fence_seqno;
 #endif
+	u64 color_negate;
+	u64 color_brightness;
+	u64 color_contrast;
+	u64 color_saturation;
+	u64 color_sin_cos_hue;
 };
-
-struct drm_rockchip_subdrv {
-	struct list_head list;
-	struct device *dev;
-	struct drm_device *drm_dev;
-
-	int (*open)(struct drm_device *drm_dev, struct device *dev,
-		    struct drm_file *file);
-	void (*close)(struct drm_device *drm_dev, struct device *dev,
-		      struct drm_file *file);
-};
-
 
 int rockchip_drm_encoder_get_mux_id(struct device_node *node,
 				    struct drm_encoder *encoder);
 int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc, int connector_type,
 				  int out_mode);
+
+int rockchip_drm_crtc_color_negate(struct drm_crtc *crtc, u64 negate);
+int rockchip_drm_crtc_color_brightness(struct drm_crtc *crtc, u64 brightness);
+int rockchip_drm_crtc_color_contrast(struct drm_crtc *crtc, u64 contrast);
+int rockchip_drm_crtc_color_saturation(struct drm_crtc *crtc, u64 saturation);
+int rockchip_drm_crtc_color_sin_cos_hue(struct drm_crtc *crtc, u64 sin_cos_hue);
+
 int rockchip_drm_crtc_enable_vblank(struct drm_device *dev, int pipe);
 void rockchip_drm_crtc_disable_vblank(struct drm_device *dev, int pipe);
 int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
@@ -82,5 +95,10 @@ void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
 
 int rockchip_register_subdrv(struct drm_rockchip_subdrv *subdrv);
 int rockchip_unregister_subdrv(struct drm_rockchip_subdrv *subdrv);
+
+int rockchip_drm_get_plane_colorkey_ioctl(struct drm_device *dev, void *data,
+					  struct drm_file *file_priv);
+int rockchip_drm_set_plane_colorkey_ioctl(struct drm_device *dev, void *data,
+					  struct drm_file *file_priv);
 
 #endif /* _ROCKCHIP_DRM_DRV_H_ */

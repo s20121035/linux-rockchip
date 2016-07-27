@@ -20,6 +20,7 @@
 struct rockchip_gem_object {
 	struct drm_gem_object base;
 	unsigned int flags;
+	unsigned long size;
 
 	struct sg_table *sgt;
 	void *kvaddr;
@@ -60,7 +61,7 @@ int rockchip_gem_mmap_buf(struct drm_gem_object *obj,
 
 struct rockchip_gem_object *
 	rockchip_gem_create_object(struct drm_device *drm, unsigned int size,
-				   bool alloc_kmap);
+				   unsigned int flags, bool alloc_kmap);
 
 void rockchip_gem_free_object(struct drm_gem_object *obj);
 
@@ -81,6 +82,20 @@ int rockchip_gem_create_ioctl(struct drm_device *dev, void *data,
 /* get buffer offset to map to user space. */
 int rockchip_gem_map_offset_ioctl(struct drm_device *dev, void *data,
 				  struct drm_file *file_priv);
+
+/* get buffer information to memory region allocated by gem. */
+int rockchip_drm_gem_get_ioctl(struct drm_device *dev, void *data,
+			       struct drm_file *file_priv);
+
+/*
+ * mmap the physically continuous memory that a gem object contains
+ * to user space.
+ */
+int rockchip_drm_gem_mmap_ioctl(struct drm_device *dev, void *data,
+				struct drm_file *file_priv);
+
+int rockchip_drm_gem_mmap_buffer(struct file *filp,
+				 struct vm_area_struct *vma);
 
 /*
  * acquire gem object for CPU access.

@@ -1,19 +1,3 @@
-/*
- * Copyright (C) Fuzhou Rockchip Electronics Co.Ltd
- * Author: Yakir Yang <ykk@rock-chips.com>
- *
- * based on exynos_drm_g2d.c
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
-
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -63,7 +47,7 @@ static void rga_dma_flush_range(void *ptr, int size)
 #ifdef CONFIG_ARM
 	dmac_flush_range(ptr, ptr + size);
 	outer_flush_range(virt_to_phys(ptr), virt_to_phys(ptr + size));
-#elif defined(CONFIG_ARM64)
+#elif defined CONFIG_ARM64
 	__dma_flush_range(ptr, ptr + size);
 #endif
 }
@@ -132,7 +116,7 @@ static void rga_init_cmdlist(struct rockchip_rga *rga)
 
 	node = rga->cmdlist_node;
 
-	for (nr = 0; nr < RGA_CMDLIST_NUM; nr++)
+	for (nr = 0; nr < ARRAY_SIZE(rga->cmdlist_node); nr++)
 		list_add_tail(&node[nr].list, &rga->free_cmdlist);
 }
 
@@ -149,6 +133,8 @@ static int rga_alloc_dma_buf_for_cmdlist(struct rga_runqueue_node *runqueue)
 
 	list_for_each_entry(node, run_cmdlist, list)
 		cmdlist_cnt++;
+
+	printk("%s:%d  ---------- cmdlist_cnt = %d\n", __func__, __LINE__, cmdlist_cnt);
 
 	init_dma_attrs(&cmdlist_dma_attrs);
 	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &runqueue->cmdlist_dma_attrs);
@@ -168,13 +154,13 @@ static int rga_alloc_dma_buf_for_cmdlist(struct rga_runqueue_node *runqueue)
 	list_for_each_entry(node, run_cmdlist, list) {
 		struct rga_cmdlist *cmdlist = &node->cmdlist;
 		unsigned int mmu_ctrl = 0;
-		u32 *dest;
 		unsigned int reg;
+		u32 *dest;
 		int i;
 
-		dest = (u32 *)cmdlist_pool_virt + RGA_CMDLIST_SIZE * count++;
+		dest = cmdlist_pool_virt + RGA_CMDLIST_SIZE * 4 * count++;
 
-		for (i = 0; i < cmdlist->req_nr; i++) {
+		for (i = 0; i < cmdlist->last / 2; i++) {
 			reg = (node->cmdlist.data[2 * i] - RGA_MODE_BASE_REG);
 			if (reg > RGA_MODE_BASE_REG)
 				continue;
@@ -221,8 +207,8 @@ static int rga_check_reg_offset(struct device *dev,
 	int reg;
 	int i;
 
-	for (i = 0; i < cmdlist->req_nr; i++) {
-		index = 2 * i;
+	for (i = 0; i < cmdlist->last / 2; i++) {
+		index = cmdlist->last - 2 * (i + 1);
 		reg = cmdlist->data[index];
 
 		switch (reg) {
@@ -246,12 +232,12 @@ static int rga_check_reg_offset(struct device *dev,
 	return 0;
 
 err:
-	dev_err(dev, "Bad register offset: 0x%08x\n", cmdlist->data[index]);
+	dev_err(dev, "Bad register offset: 0x%x\n", cmdlist->data[index]);
 	return -EINVAL;
 }
 
 static struct dma_buf_attachment *
-rga_gem_buf_to_pages(struct rockchip_rga *rga, void **mmu_pages, int handle)
+rga_gem_buf_to_pages(struct rockchip_rga *rga, void **mmu_pages, int fd)
 {
 	struct dma_buf_attachment *attach;
 	struct dma_buf *dmabuf;
@@ -264,9 +250,9 @@ rga_gem_buf_to_pages(struct rockchip_rga *rga, void **mmu_pages, int handle)
 	unsigned int *pages;
 	int ret;
 
-	dmabuf = dma_buf_get(handle);
+	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf)) {
-		dev_err(rga->dev, "Failed to get dma_buf with handle %d\n", handle);
+		dev_err(rga->dev, "Failed to get dma_buf with fd %d\n", fd);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -296,9 +282,6 @@ rga_gem_buf_to_pages(struct rockchip_rga *rga, void **mmu_pages, int handle)
 
 		for (p = 0; p < len; p++) {
 			dma_addr_t phys = address + (p << PAGE_SHIFT);
-			//void *virt = phys_to_virt(phys);
-
-			//rga_dma_flush_range(virt, 4 * 1024);
 			pages[mapped_size + p] = phys;
 		}
 
@@ -329,16 +312,16 @@ static int rga_map_cmdlist_gem(struct rockchip_rga *rga,
 	struct rga_cmdlist *cmdlist = &node->cmdlist;
 	struct dma_buf_attachment *attach;
 	void *mmu_pages;
-	unsigned long handle;
+	int fd;
 	int i;
 
-	for (i = 0; i < cmdlist->req_nr; i++) {
-		int index = 2 * i;
+	for (i = 0; i < cmdlist->last / 2; i++) {
+		int index = cmdlist->last - 2 * (i + 1);
 
 		switch (cmdlist->data[index]) {
 		case RGA_SRC_Y_RGB_BASE_ADDR | RGA_BUF_TYPE_GEMFD:
-			handle = cmdlist->data[index + 1];
-			attach = rga_gem_buf_to_pages(rga, &mmu_pages, handle);
+			fd = cmdlist->data[index + 1];
+			attach = rga_gem_buf_to_pages(rga, &mmu_pages, fd);
 			if (IS_ERR(attach))
 				return PTR_ERR(attach);
 
@@ -347,8 +330,8 @@ static int rga_map_cmdlist_gem(struct rockchip_rga *rga,
 			break;
 
 		case RGA_DST_Y_RGB_BASE_ADDR | RGA_BUF_TYPE_GEMFD:
-			handle = cmdlist->data[index + 1];
-			attach = rga_gem_buf_to_pages(rga, &mmu_pages, handle);
+			fd = cmdlist->data[index + 1];
+			attach = rga_gem_buf_to_pages(rga, &mmu_pages, fd);
 			if (IS_ERR(attach))
 				return PTR_ERR(attach);
 
@@ -413,13 +396,15 @@ static void rga_cmd_start(struct rockchip_rga *rga,
 
 	rga_write(rga, RGA_INT, 0x600);
 
+	printk("%s:%d ------------ cmdlist_cnt = %d\n", __func__, __LINE__, runqueue->cmdlist_cnt);
 	rga_write(rga, RGA_CMD_CTRL, ((runqueue->cmdlist_cnt - 1) << 3) | 0x1);
+	printk("%s:%d ------------ RGA_CMD_CTRL = %x\n", __func__, __LINE__, rga_read(rga, RGA_CMD_CTRL));
 }
 
 static void rga_free_runqueue_node(struct rockchip_rga *rga,
 				   struct rga_runqueue_node *runqueue)
 {
-	struct rga_cmdlist_node *node, *n;
+	struct rga_cmdlist_node *node;
 
 	if (!runqueue)
 		return;
@@ -435,12 +420,9 @@ static void rga_free_runqueue_node(struct rockchip_rga *rga,
 	 * commands in run_cmdlist have been completed so unmap all gem
 	 * objects in each command node so that they are unreferenced.
 	 */
-	list_for_each_entry_safe(node, n, &runqueue->run_cmdlist, list) {
+	list_for_each_entry(node, &runqueue->run_cmdlist, list)
 		rga_unmap_cmdlist_gem(rga, node);
-		list_move_tail(&node->list, &rga->free_cmdlist);
-	}
-	INIT_LIST_HEAD(&runqueue->run_cmdlist);
-	
+	list_splice_tail_init(&runqueue->run_cmdlist, &rga->free_cmdlist);
 	mutex_unlock(&rga->cmdlist_mutex);
 
 	kmem_cache_free(rga->runqueue_slab, runqueue);
@@ -485,6 +467,13 @@ static struct rga_cmdlist_node *rga_get_cmdlist(struct rockchip_rga *rga)
 	mutex_unlock(&rga->cmdlist_mutex);
 
 	return node;
+}
+
+static void rga_put_cmdlist(struct rockchip_rga *rga, struct rga_cmdlist_node *node)
+{
+	mutex_lock(&rga->cmdlist_mutex);
+	list_move_tail(&node->list, &rga->free_cmdlist);
+	mutex_unlock(&rga->cmdlist_mutex);
 }
 
 static void rga_add_cmdlist_to_inuse(struct rockchip_drm_rga_private *rga_priv,
@@ -556,74 +545,59 @@ int rockchip_rga_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 	if (!rga)
 		return -EFAULT;
 
+	if (req->cmd_nr > RGA_CMDLIST_SIZE || req->cmd_buf_nr > RGA_CMDBUF_SIZE) {
+		dev_err(rga->dev, "cmdlist size is too big\n");
+		return -EINVAL;
+	}
+
 	node = rga_get_cmdlist(rga);
 	if (!node)
 		return -ENOMEM;
 
 	cmdlist = &node->cmdlist;
-	cmdlist->req_nr = 0;
-
-	if (req->cmd_nr > RGA_CMDLIST_SIZE || req->cmd_buf_nr > RGA_CMDBUF_SIZE) {
-		dev_err(rga->dev, "cmdlist size is too big\n");
-		ret = -EINVAL;
-		goto check_err;
-	}
+	cmdlist->last = 0;
 
 	/*
 	 * Copy the command / buffer registers setting from userspace, each
 	 * command have two integer, one for register offset, another for
 	 * register value.
 	 */
-	if (copy_from_user((void *)&cmdlist->data[cmdlist->req_nr * 2],
-			(void __user *)(uint32_t)req->cmd,
-			sizeof(struct drm_rockchip_rga_cmd) * req->cmd_nr)) {
-		goto check_err;
-		ret = -EFAULT;
-	}
-	cmdlist->req_nr += req->cmd_nr;
+	if (copy_from_user(cmdlist->data, (void __user *)(uint32_t)req->cmd,
+			   sizeof(struct drm_rockchip_rga_cmd) * req->cmd_nr))
+		return -EFAULT;
+	cmdlist->last += req->cmd_nr * 2;
 
-	if (copy_from_user((void *)&cmdlist->data[cmdlist->req_nr * 2],
-			(void __user *)(uint32_t)req->cmd_buf,
-			sizeof(struct drm_rockchip_rga_cmd) * req->cmd_buf_nr)) {
-		goto check_err;
-		ret = -EFAULT;
-	}
-	cmdlist->req_nr += req->cmd_buf_nr;
-
-#ifdef DEBUG
-	{
-		int i = 0;
-		for (i = 0; i < cmdlist->req_nr; i++) {
-			printk(KERN_ERR "Index: %d, CMD: 0x%08x VAL: 0x%08x\n",
-					i, cmdlist->data[2 * i],
-					cmdlist->data[2*i + 1]);
-		}
-	}
-#endif
-
+	if (copy_from_user(&cmdlist->data[cmdlist->last],
+			   (void __user *)(uint32_t)req->cmd_buf,
+			   sizeof(struct drm_rockchip_rga_cmd) * req->cmd_buf_nr))
+		return -EFAULT;
+	cmdlist->last += req->cmd_buf_nr * 2;
 
 	/*
 	 * Check the userspace command registers, and mapping the framebuffer,
 	 * create the RGA mmu pages or get the framebuffer dma address.
 	 */
 	ret = rga_check_reg_offset(rga->dev, node);
-	if (ret < 0)
-		goto check_err;
+	if (ret < 0) {
+		dev_err(rga->dev, "Check reg offset failed\n");
+		goto err_free_cmdlist;
+	}
 
 	ret = rga_map_cmdlist_gem(rga, node, drm_dev, file);
-	if (ret < 0)
-		goto map_err;
+	if (ret < 0) {
+		dev_err(rga->dev, "Failed to map cmdlist\n");
+		goto err_unmap_cmdlist;
+	}
 
 	rga_add_cmdlist_to_inuse(rga_priv, node);
 
 	return 0;
 
-map_err:
+err_unmap_cmdlist:
 	rga_unmap_cmdlist_gem(rga, node);
-check_err:
-	mutex_lock(&rga->cmdlist_mutex);
-	list_add_tail(&node->list, &rga->free_cmdlist);
-	mutex_unlock(&rga->cmdlist_mutex);
+err_free_cmdlist:
+	rga_put_cmdlist(rga, node);
+
 	return ret;
 }
 
@@ -776,37 +750,37 @@ static irqreturn_t rga_irq_handler(int irq, void *dev_id)
 
 static int rga_parse_dt(struct rockchip_rga *rga)
 {
-	struct reset_control *sclk_rst, *aclk_rst, *hclk_rst;
+	struct reset_control *core_rst, *axi_rst, *ahb_rst;
 
-	sclk_rst = devm_reset_control_get(rga->dev, "sclk");
-	if (IS_ERR(sclk_rst)) {
-		dev_err(rga->dev, "failed to get sclk reset controller\n");
-		return PTR_ERR(sclk_rst);
+	core_rst = devm_reset_control_get(rga->dev, "core");
+	if (IS_ERR(core_rst)) {
+		dev_err(rga->dev, "failed to get core reset controller\n");
+		return PTR_ERR(core_rst);
 	}
 
-	aclk_rst = devm_reset_control_get(rga->dev, "aclk");
-	if (IS_ERR(aclk_rst)) {
-		dev_err(rga->dev, "failed to get aclk reset controller\n");
-		return PTR_ERR(aclk_rst);
+	axi_rst = devm_reset_control_get(rga->dev, "axi");
+	if (IS_ERR(axi_rst)) {
+		dev_err(rga->dev, "failed to get axi reset controller\n");
+		return PTR_ERR(axi_rst);
 	}
 
-	hclk_rst = devm_reset_control_get(rga->dev, "hclk");
-	if (IS_ERR(hclk_rst)) {
-		dev_err(rga->dev, "failed to get hclk reset controller\n");
-		return PTR_ERR(hclk_rst);
+	ahb_rst = devm_reset_control_get(rga->dev, "ahb");
+	if (IS_ERR(ahb_rst)) {
+		dev_err(rga->dev, "failed to get ahb reset controller\n");
+		return PTR_ERR(ahb_rst);
 	}
 
-	reset_control_assert(sclk_rst);
-	usleep_range(10, 20);
-	reset_control_deassert(sclk_rst);
+	reset_control_assert(core_rst);
+	udelay(1);
+	reset_control_deassert(core_rst);
 
-	reset_control_assert(aclk_rst);
-	usleep_range(10, 20);
-	reset_control_deassert(aclk_rst);
+	reset_control_assert(axi_rst);
+	udelay(1);
+	reset_control_deassert(axi_rst);
 
-	reset_control_assert(hclk_rst);
-	usleep_range(10, 20);
-	reset_control_deassert(hclk_rst);
+	reset_control_assert(ahb_rst);
+	udelay(1);
+	reset_control_deassert(ahb_rst);
 
 	rga->sclk = devm_clk_get(rga->dev, "sclk");
 	if (IS_ERR(rga->sclk)) {
@@ -858,12 +832,6 @@ static int rga_probe(struct platform_device *pdev)
 					       sizeof(struct rga_runqueue_node),
 					       0, 0, NULL);
 	if (!rga->runqueue_slab)
-		return -ENOMEM;
-
-	rga->cmdlist_node = devm_kzalloc(&pdev->dev,
-			sizeof(struct rga_cmdlist_node) * RGA_CMDLIST_NUM,
-			GFP_KERNEL);
-	if (!rga->cmdlist_node)
 		return -ENOMEM;
 
 	rga->rga_workq = create_singlethread_workqueue("rga");
@@ -922,13 +890,6 @@ static int rga_probe(struct platform_device *pdev)
 	subdrv->close = rockchip_rga_close;
 
 	rockchip_register_subdrv(subdrv);
-	if (ret < 0) {
-		dev_err(rga->dev, "failed to register drm RGA device\n");
-		goto err_put_clk;
-	}
-
-	dev_info(rga->dev, "The rockchip RGA(ver %d.%d) successfully probed\n",
-			rga->version.major, rga->version.minor);
 
 	return 0;
 
@@ -954,6 +915,8 @@ static int rga_remove(struct platform_device *pdev)
 	}
 
 	rockchip_unregister_subdrv(&rga->subdrv);
+
+	pm_runtime_disable(rga->dev);
 
 	return 0;
 }
@@ -1019,5 +982,5 @@ module_platform_driver(rga_pltfm_driver);
 
 MODULE_AUTHOR("Yakir Yang <ykk@rock-chips.com>");
 MODULE_DESCRIPTION("Rockchip RGA Driver Extension");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:rockchip-rga");

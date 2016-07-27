@@ -9,7 +9,7 @@
 struct rga_cmdlist {
 	u32		head;
 	u32		data[RGA_CMDLIST_SIZE * 2];
-	u32		req_nr;	/* last data offset */
+	u32		last;	/* last data offset */
 	void		*src_mmu_pages;
 	void		*dst_mmu_pages;
 	void		*src1_mmu_pages;
@@ -39,8 +39,8 @@ struct rga_runqueue_node {
 };
 
 struct rockchip_rga_version {
-	__u32			major;
-	__u32			minor;
+	u32			major;
+	u32			minor;
 };
 
 struct rockchip_rga {
@@ -58,6 +58,10 @@ struct rockchip_rga {
 	struct workqueue_struct		*rga_workq;
 	struct work_struct		runqueue_work;
 
+	/* rga command list pool */
+	struct rga_cmdlist_node		cmdlist_node[RGA_CMDLIST_NUM];
+	struct mutex			cmdlist_mutex;
+
 	struct list_head		free_cmdlist;
 
 	/* rga runqueue */
@@ -65,11 +69,6 @@ struct rockchip_rga {
 	struct list_head		runqueue_list;
 	struct mutex			runqueue_mutex;
 	struct kmem_cache		*runqueue_slab;
-
-	/* rga command list pool */
-	struct rga_cmdlist_node		*cmdlist_node;
-	struct mutex			cmdlist_mutex;
-
 };
 
 struct rockchip_drm_rga_private {
@@ -78,7 +77,7 @@ struct rockchip_drm_rga_private {
 	struct list_head	userptr_list;
 };
 
-#ifdef CONFIG_ROCKCHIP_DRM_RGA
+#ifdef CONFIG_ROCKCHIP_RGA
 int rockchip_rga_get_ver_ioctl(struct drm_device *dev, void *data,
 			       struct drm_file *file_priv);
 int rockchip_rga_set_cmdlist_ioctl(struct drm_device *dev, void *data,

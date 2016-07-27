@@ -20,6 +20,8 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_sync_helper.h>
+#include <linux/anon_inodes.h>
+#include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_graph.h>
@@ -40,8 +42,113 @@
 #define DRIVER_MAJOR	1
 #define DRIVER_MINOR	0
 
-
 static LIST_HEAD(rockchip_drm_subdrv_list);
+
+/* As the drm_debugfs_init() routines are called before dev->dev_private is
+ * allocated we need to hook into the minor for release. */
+static int
+drm_add_fake_info_node(struct drm_minor *minor,
+		       struct dentry *ent,
+		       const void *key)
+{
+	struct drm_info_node *node;
+
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
+	if (node == NULL) {
+		debugfs_remove(ent);
+		return -ENOMEM;
+	}
+
+	node->minor = minor;
+	node->dent = ent;
+	node->info_ent = (void *) key;
+
+	mutex_lock(&minor->debugfs_lock);
+	list_add(&node->list, &minor->debugfs_list);
+	mutex_unlock(&minor->debugfs_lock);
+
+	return 0;
+}
+
+#define __ROCKCHIP_DRM_EXTENSION_SYS(_name) \
+static int rockchip_drm_##_name##_get(void *data, u64 *value)		      \
+{									      \
+	struct drm_device *drm_dev = data;				      \
+	struct rockchip_drm_private *private = drm_dev->dev_private;	      \
+									      \
+	*value = private->_name;					      \
+									      \
+	return 0;							      \
+}									      \
+static int rockchip_drm_##_name##_set(void *data, u64 value)		      \
+{									      \
+	struct drm_device *drm_dev = data;				      \
+	struct rockchip_drm_private *private = drm_dev->dev_private;	      \
+	struct drm_crtc *crtc;						      \
+									      \
+	list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head)      \
+		rockchip_drm_crtc_##_name(crtc, value);			      \
+									      \
+	private->_name = value;                                               \
+									      \
+	return 0;							      \
+}									      \
+DEFINE_SIMPLE_ATTRIBUTE(rockchip_drm_##_name##_fops,			      \
+			rockchip_drm_##_name##_get,			      \
+			rockchip_drm_##_name##_set, "%llu\n");		      \
+
+__ROCKCHIP_DRM_EXTENSION_SYS(color_negate);
+__ROCKCHIP_DRM_EXTENSION_SYS(color_brightness);
+__ROCKCHIP_DRM_EXTENSION_SYS(color_contrast);
+__ROCKCHIP_DRM_EXTENSION_SYS(color_saturation);
+__ROCKCHIP_DRM_EXTENSION_SYS(color_sin_cos_hue);
+
+static const struct rockchip_drm_debugfs_files {
+	const char *name;
+	const struct file_operations *fops;
+} rockchip_drm_debugfs_files[] = {
+	{"rockchip_color_negate", &rockchip_drm_color_negate_fops},
+	{"rockchip_color_brightness", &rockchip_drm_color_brightness_fops},
+	{"rockchip_color_contrast", &rockchip_drm_color_contrast_fops},
+	{"rockchip_color_saturation", &rockchip_drm_color_saturation_fops},
+	{"rockchip_color_sin_cos_hue", &rockchip_drm_color_sin_cos_hue_fops},
+};
+
+int rockchip_drm_debugfs_init(struct drm_minor *minor)
+{
+	struct drm_device *dev = minor->dev;
+	struct dentry *ent;
+	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(rockchip_drm_debugfs_files); i++) {
+		ent = debugfs_create_file(rockchip_drm_debugfs_files[i].name,
+					  S_IRUGO | S_IWUSR,
+					  minor->debugfs_root, dev,
+					  rockchip_drm_debugfs_files[i].fops);
+		if (!ent)
+			return -ENOMEM;
+
+		ret = drm_add_fake_info_node(minor, ent,
+					rockchip_drm_debugfs_files[i].fops);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+void rockchip_drm_debugfs_cleanup(struct drm_minor *minor)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(rockchip_drm_debugfs_files); i++) {
+		struct drm_info_list *info_list =
+			(struct drm_info_list *) rockchip_drm_debugfs_files[i].fops;
+
+		drm_debugfs_remove_files(info_list, 1, minor);
+	}
+}
 
 /*
  * Attach a (component) device to the shared drm dma mapping from master drm
@@ -82,6 +189,11 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		return -ENOMEM;
 
 	drm_dev->dev_private = private;
+
+	private->color_negate = 0;
+	private->color_brightness = 128;
+	private->color_saturation = 256;
+	private->color_contrast = 256;
 
 #ifdef CONFIG_DRM_DMA_SYNC
 	private->cpu_fence_context = fence_context_alloc(1);
@@ -217,10 +329,15 @@ int rockchip_unregister_subdrv(struct drm_rockchip_subdrv *subdrv)
 }
 EXPORT_SYMBOL_GPL(rockchip_unregister_subdrv);
 
+static const struct file_operations rockchip_drm_gem_fops = {
+	.mmap = rockchip_drm_gem_mmap_buffer,
+};
+
 static int rockchip_drm_open(struct drm_device *dev, struct drm_file *file)
 {
 	struct rockchip_drm_file_private *file_priv;
 	struct drm_rockchip_subdrv *subdrv;
+	struct file *anon_filp;
 	int ret = 0;
 
 	file_priv = kzalloc(sizeof(*file_priv), GFP_KERNEL);
@@ -230,21 +347,28 @@ static int rockchip_drm_open(struct drm_device *dev, struct drm_file *file)
 
 	file->driver_priv = file_priv;
 
+	anon_filp = anon_inode_getfile("rockchip_gem", &rockchip_drm_gem_fops,
+					NULL, 0);
+	if (IS_ERR(anon_filp)) {
+		ret = PTR_ERR(anon_filp);
+		goto err_file_priv_free;
+	}
+
+	anon_filp->f_mode = FMODE_READ | FMODE_WRITE;
+	file_priv->anon_filp = anon_filp;
+
 	list_for_each_entry(subdrv, &rockchip_drm_subdrv_list, list) {
-		if (subdrv->open) {
-			ret = subdrv->open(dev, subdrv->dev, file);
-			if (ret)
-				goto err;
-		}
+		ret = subdrv->open(dev, subdrv->dev, file);
+		if (ret)
+			goto err_file_priv_free;
 	}
 
 	return 0;
 
-err:
-	list_for_each_entry_reverse(subdrv, &subdrv->list, list) {
-		if (subdrv->close)
-			subdrv->close(dev, subdrv->dev, file);
-	}
+err_file_priv_free:
+	kfree(file_priv);
+	file->driver_priv = NULL;
+
 	return ret;
 }
 
@@ -271,14 +395,20 @@ static void rockchip_drm_preclose(struct drm_device *dev,
 	INIT_LIST_HEAD(&file_private->gem_cpu_acquire_list);
 	mutex_unlock(&dev->struct_mutex);
 
-	list_for_each_entry(subdrv, &rockchip_drm_subdrv_list, list) {
-		if (subdrv->close)
-			subdrv->close(dev, subdrv->dev, file);
-	}
+	list_for_each_entry(subdrv, &rockchip_drm_subdrv_list, list)
+		subdrv->close(dev, subdrv->dev, file);
 }
 
 static void rockchip_drm_postclose(struct drm_device *dev, struct drm_file *file)
 {
+	struct rockchip_drm_file_private *file_priv = file->driver_priv;
+
+	if (!file_priv)
+		return;
+
+	if (file_priv->anon_filp)
+		fput(file_priv->anon_filp);
+
 	kfree(file->driver_priv);
 	file->driver_priv = NULL;
 }
@@ -291,23 +421,33 @@ void rockchip_drm_lastclose(struct drm_device *dev)
 }
 
 static const struct drm_ioctl_desc rockchip_ioctls[] = {
-	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CREATE, rockchip_gem_create_ioctl,
-			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_MAP_OFFSET,
-			  rockchip_gem_map_offset_ioctl,
-			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
-	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CPU_ACQUIRE,
-			  rockchip_gem_cpu_acquire_ioctl,
-			  DRM_UNLOCKED | DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CPU_RELEASE,
-			  rockchip_gem_cpu_release_ioctl,
-			  DRM_UNLOCKED | DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(ROCKCHIP_RGA_GET_VER, rockchip_rga_get_ver_ioctl,
 			  DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(ROCKCHIP_RGA_SET_CMDLIST, rockchip_rga_set_cmdlist_ioctl,
 			  DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(ROCKCHIP_RGA_EXEC, rockchip_rga_exec_ioctl,
 			  DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CREATE, rockchip_gem_create_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_MAP_OFFSET,
+			  rockchip_gem_map_offset_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_MMAP,
+			  rockchip_drm_gem_mmap_ioctl, DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_GET,
+			  rockchip_drm_gem_get_ioctl, DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CPU_ACQUIRE,
+			  rockchip_gem_cpu_acquire_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CPU_RELEASE,
+			  rockchip_gem_cpu_release_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_VOP_GET_PLANE_COLORKEY,
+			  rockchip_drm_get_plane_colorkey_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_VOP_SET_PLANE_COLORKEY,
+			  rockchip_drm_set_plane_colorkey_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH),
 };
 
 static const struct file_operations rockchip_drm_driver_fops = {
@@ -337,6 +477,10 @@ static struct drm_driver rockchip_drm_driver = {
 	.preclose		= rockchip_drm_preclose,
 	.lastclose		= rockchip_drm_lastclose,
 	.postclose		= rockchip_drm_postclose,
+#if defined(CONFIG_DEBUG_FS)
+	.debugfs_init		= rockchip_drm_debugfs_init,
+	.debugfs_cleanup	= rockchip_drm_debugfs_cleanup,
+#endif
 	.get_vblank_counter	= drm_vblank_count,
 	.enable_vblank		= rockchip_drm_crtc_enable_vblank,
 	.disable_vblank		= rockchip_drm_crtc_disable_vblank,
