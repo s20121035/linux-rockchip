@@ -5,6 +5,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
@@ -41,6 +42,13 @@
 #define RGA_MMU_SRC_BASE		0x0170
 #define RGA_MMU_SRC1_BASE		0x0174
 #define RGA_MMU_DST_BASE		0x0178
+
+typedef u32		compat_uptr_t;
+static inline void __user *compat_ptr(compat_uptr_t uptr)
+{
+	return (void __user *)(unsigned long)uptr;
+}
+
 
 static void rga_dma_flush_range(void *ptr, int size)
 {
