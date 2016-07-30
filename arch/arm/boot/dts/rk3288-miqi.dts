@@ -212,7 +212,7 @@
 	cap-mmc-highspeed;
 	disable-wp;
 	non-removable;
-	clock-freq-min-max = <400000 75000000>;
+	clock-frequency = <75000000>;
 	num-slots = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_pwr &emmc_bus8>;
