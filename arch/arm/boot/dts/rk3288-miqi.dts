@@ -178,6 +178,24 @@
 		rockchip,grf = <&grf>;
 		sdcard-supply = <&vccio_sd>;
 	};
+
+        board-leds {
+                compatible = "gpio-leds";
+                status = "okay";
+
+                work {
+                        label = "System";
+                        linux,default-trigger = "timer";
+                        default-state = "on";
+                        gpios = <&gpio7 2 GPIO_ACTIVE_HIGH>;
+                };
+                fan {
+                        label = "Fan";
+                        linux,default-trigger = "heartbeat";
+                        default-state = "on";
+                        gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+                };
+        };
 };
 
 &cpu0 {
