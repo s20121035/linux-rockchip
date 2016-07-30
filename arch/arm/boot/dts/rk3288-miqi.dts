@@ -50,43 +50,41 @@
 		reg = <0x0 0x80000000>;
 	};
 
-	sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "rockchip,rt5640-codec";
-		simple-audio-card,mclk-fs = <512>;
-		simple-audio-card,widgets =
-			"Microphone", "Microphone Jack",
-			"Headphone", "Headphone Jack";
-		simple-audio-card,routing =
-			"MIC1", "Microphone Jack",
-			"MIC2", "Microphone Jack",
-			"Microphone Jack", "micbias1",
-			"Headphone Jack", "HPOL",
-			"Headphone Jack", "HPOR";
+	codec_hdmi_i2s: codec-hdmi-i2s {
+		compatible = "hdmi-i2s";
+	};
 
-		simple-audio-card,dai-link@0 {
-			format = "i2s";
-			cpu {
-				sound-dai = <&i2s>;
-			};
+	codec_hdmi_spdif: codec-hdmi-spdif {
+		compatible = "hdmi-spdif";
+	};
 
-			codec {
-				sound-dai = <&rt5640>;
-			};
-		};
-
-		simple-audio-card,dai-link@1 {
-			format = "i2s";
-			cpu {
-				sound-dai = <&i2s>;
-			};
-
-			codec {
-				sound-dai = <&hdmi>;
+	rockchip-hdmi-i2s {
+		status = "okay";
+		compatible = "rockchip-hdmi-i2s";
+		dais {
+			dai0 {
+				audio-codec = <&codec_hdmi_i2s>;
+				audio-controller = <&i2s>;
+				format = "i2s";
+				//continuous-clock;
+				//bitclock-inversion;
+				//frame-inversion;
+				//bitclock-master;
+				//frame-master;
 			};
 		};
 	};
+
+	rockchip-spdif-card {
+		compatible = "rockchip-spdif-card";
+		dais {
+			dai0 {
+				audio-codec = <&codec_hdmi_spdif>;
+				audio-controller = <&spdif>;
+			};
+		};
+	};
+
 
 	ext_gmac: external-gmac-clock {
 		compatible = "fixed-clock";
@@ -196,6 +194,7 @@
 	cap-mmc-highspeed;
 	disable-wp;
 	non-removable;
+	clock-freq-min-max = <400000 75000000>;
 	num-slots = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_pwr &emmc_bus8>;
@@ -245,6 +244,18 @@
 	status = "ok";
 };
 
+/* ----------------------------------------------------------------------------------
+I2C
+   0 - PMIC(ACT8846)
+       RTC(HYM8563)
+       SYR827 -> VDD_CPU_FB
+       SYR828 -> VDD_GPU_FB
+   1 - Header-J9
+   2 - Header-J10
+   3 - NC
+   4 - NC
+   5 - HDMI
+-------------------------------------------------------------------------------------*/
 &i2c0 {
 	status = "okay";
 
@@ -391,17 +402,7 @@
 };
 
 &i2c2 {
-	status = "okay";
-
-	rt5640: rt5640@1c {
-		#sound-dai-cells = <0>;
-		compatible = "realtek,rt5640";
-		reg = <0x1c>;
-		clocks = <&cru SCLK_I2S0_OUT>;
-		clock-names = "mclk";
-		interrupt-parent = <&gpio6>;
-		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
-	};
+	status = "disabled";
 };
 
 &i2c5 {
