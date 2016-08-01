@@ -50,40 +50,22 @@
 		reg = <0x0 0x80000000>;
 	};
 
-	codec_hdmi_i2s: codec-hdmi-i2s {
-		compatible = "hdmi-i2s";
-	};
+       hdmi-sound {
+               compatible = "simple-audio-card";
+               simple-audio-card,format = "i2s";
+               simple-audio-card,name = "DW-HDMI";
+               simple-audio-card,mclk-fs = <512>;
 
-	codec_hdmi_spdif: codec-hdmi-spdif {
-		compatible = "hdmi-spdif";
-	};
+               simple-audio-card,cpu {
+                       sound-dai = <&i2s>;
+               };
 
-	rockchip-hdmi-i2s {
-		status = "okay";
-		compatible = "rockchip-hdmi-i2s";
-		dais {
-			dai0 {
-				audio-codec = <&codec_hdmi_i2s>;
-				audio-controller = <&i2s>;
-				format = "i2s";
-				//continuous-clock;
-				//bitclock-inversion;
-				//frame-inversion;
-				//bitclock-master;
-				//frame-master;
-			};
-		};
-	};
+               simple-audio-card,codec {
+                       sound-dai = <&hdmi>;
+               };
+       };
 
-	rockchip-spdif-card {
-		compatible = "rockchip-spdif-card";
-		dais {
-			dai0 {
-				audio-codec = <&codec_hdmi_spdif>;
-				audio-controller = <&spdif>;
-			};
-		};
-	};
+	
 
 
 	ext_gmac: external-gmac-clock {
