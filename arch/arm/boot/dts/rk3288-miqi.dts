@@ -50,23 +50,33 @@
 		reg = <0x0 0x80000000>;
 	};
 
-       hdmi-sound {
-               compatible = "simple-audio-card";
-               simple-audio-card,format = "i2s";
-               simple-audio-card,name = "DW-HDMI";
-               simple-audio-card,mclk-fs = <512>;
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "DW-HDMI";
+		simple-audio-card,mclk-fs = <512>;
 
-               simple-audio-card,cpu {
-                       sound-dai = <&i2s>;
-               };
+		simple-audio-card,dai-link@0 {  /* I2S - S/PDIF */
+			format = "i2s";
+			cpu {
+				sound-dai = <&i2s>;
+			};
+			codec {
+				sound-dai = <&hdmi>;
+			};
+		};
 
-               simple-audio-card,codec {
-                       sound-dai = <&hdmi>;
-               };
-       };
+		/*
+		 * If you want to support more cards,
+		 * you can add more dai-link node,
+		 * such as
+		 *
+		 *   simple-audio-card,dai-link@1 {
+		 *       ......
+		 *   }
+		 */
 
-	
-
+	};
 
 	ext_gmac: external-gmac-clock {
 		compatible = "fixed-clock";
@@ -82,14 +92,13 @@
 		autorepeat;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pwrbtn>;
+		pinctrl-0 = <&gkey>;
 
 		button@0 {
-			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio7 9 GPIO_ACTIVE_LOW>;
 			linux,code = <116>;
-			label = "GPIO Key Power";
+			label = "GPIO Key";
 			linux,input-type = <1>;
-			gpio-key,wakeup = <1>;
 			debounce-interval = <100>;
 		};
 	};
@@ -128,15 +137,6 @@
 		regulator-boot-on;
 	};
 
-	/* This switch DIO3222 HOST_DP_HOST to host2 (dwc2) */
-	vcc_3g: vcc-3g-regulator {
-		compatible = "regulator-fixed";
-		enable-active-high;
-		gpio = <&gpio7 8 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pwr_3g>;
-		regulator-name = "vcc_3g";
-	};
 
 	/*
 	 * NOTE: vcc_sd isn't hooked up on v1.0 boards where power comes from
@@ -171,6 +171,7 @@
                         default-state = "on";
                         gpios = <&gpio7 2 GPIO_ACTIVE_HIGH>;
                 };
+
                 fan {
                         label = "Fan";
                         linux,default-trigger = "heartbeat";
@@ -401,8 +402,14 @@ I2C
 	};
 };
 
+&i2c1 {
+	status = "okay";
+	/* Add more nodes to your requirement, such as i2c0 */
+};
+
 &i2c2 {
-	status = "disabled";
+	status = "okay";
+	/* Add more nodes to your requirement, such as i2c2 */
 };
 
 &i2c5 {
@@ -414,6 +421,10 @@ I2C
 	status = "okay";
 };
 
+&spi2 {
+	status = "okay";
+};
+
 &wdt {
 	status = "okay";
 };
@@ -422,23 +433,14 @@ I2C
 	status = "okay";
 };
 
-&uart0 {
-	status = "okay";
-};
-
-&uart1 {
-	status = "okay";
-};
-
+/*
+ * Debug Serial Port
+ */
 &uart2 {
 	status = "okay";
 };
 
 &uart3 {
-	status = "okay";
-};
-
-&uart4 {
 	status = "okay";
 };
 
@@ -463,8 +465,8 @@ I2C
 	};
 
 	buttons {
-		pwrbtn: pwrbtn {
-			rockchip,pins = <0 5 RK_FUNC_GPIO &pcfg_pull_up>;
+		gkey: gkey{
+			rockchip,pins = <7 9 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
