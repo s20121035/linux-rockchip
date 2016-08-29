@@ -431,6 +431,7 @@ static int rk3288_dmcfreq_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	unsigned long freq;
+    int err = 0;
 	u32 tmp;
 
 	dmcfreq.clk_dev = dev->parent;
@@ -463,10 +464,22 @@ static int rk3288_dmcfreq_probe(struct platform_device *pdev)
 	 * We add a devfreq driver to our parent since it has a device tree node
 	 * with operating points.
 	 */
+#if defined(CONFIG_OF) && defined(CONFIG_PM_OPP)
+    /* Register the OPPs if they are available in device tree */
+    err = dev_pm_opp_of_add_table(dmcfreq.clk_dev);
+    if (err) {
+            dev_dbg(dev, "OPP table not found\n");
+            dev_err(dev, "Invalid operating-points in device tree.\n");
+            return -EINVAL;
+    }
+#endif /* CONFIG_OF && CONFIG_PM_OPP */
+
+#if 0
 	if (of_init_opp_table(dmcfreq.clk_dev)) {
 		dev_err(dev, "Invalid operating-points in device tree.\n");
 		return -EINVAL;
 	}
+#endif
 
 	/* Check if we are using LPDDR */
 	regmap_read(dmcfreq.pmu, PMU_SYS_REG2, &tmp);
