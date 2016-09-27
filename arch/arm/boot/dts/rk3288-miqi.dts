@@ -315,6 +315,7 @@ I2C
 		compatible = "active-semi,act8846";
 		reg = <0x5a>;
 		status = "okay";
+		system-power-controller;
 
 		vp1-supply = <&vcc_sys>;
 		vp2-supply = <&vcc_sys>;
@@ -549,4 +550,11 @@ I2C
 
 &vopl_mmu {
 	status = "okay";
+};
+
+&tsadc {
+    status = "okay";
+
+    rockchip,hw-tshut-mode = <1>; /* tshut mode 0:CRU 1:GPIO */
+    rockchip,hw-tshut-polarity = <1>; /* tshut polarity 0:LOW 1:HIGH */
 };
