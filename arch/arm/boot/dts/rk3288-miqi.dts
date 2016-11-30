@@ -185,11 +185,22 @@
 
 &cpu0 {
 	cpu0-supply = <&vdd_cpu>;
+       operating-points = <
+           /* KHz    uV */
+           1800000 1400000
+           1704000 1350000
+           1608000 1300000
+           1512000 1250000
+           1416000 1200000
+           1200000 1100000
+            1008000 1050000
+       >;
 };
 
 &gpu {
 	status = "okay";
 	mali-supply = <&vdd_gpu>;
+    power-off-delay-ms = <200>;
 };
 
 &emmc {
@@ -307,6 +318,7 @@ I2C
 		compatible = "active-semi,act8846";
 		reg = <0x5a>;
 		status = "okay";
+        system-power-controller;
 
 		vp1-supply = <&vcc_sys>;
 		vp2-supply = <&vcc_sys>;
@@ -333,9 +345,10 @@ I2C
 
 			vdd_log: REG3 {
 				regulator-name = "VDD_LOG";
-				regulator-min-microvolt = <1000000>;
-				regulator-max-microvolt = <1000000>;
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <1500000>;
 				regulator-always-on;
+                regulator-boot-on;
 			};
 
 			vcc_20: REG4 {
@@ -541,5 +554,15 @@ I2C
 		};
 	};
 
+};
+
+&tsadc {
+    status = "okay";
+    rockchip,hw-tshut-mode = <1>; /* tshut mode 0:CRU 1:GPIO */
+    rockchip,hw-tshut-polarity = <1>; /* tshut polarity 0:LOW 1:HIGH */
+};
+
+&saradc {
+   status = "okay";
 };
 
