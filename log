@@ -1,0 +1,571 @@
+checking file Documentation/hwlat_detector.txt
+checking file Documentation/kernel-parameters.txt
+checking file Documentation/sysrq.txt
+checking file Documentation/trace/histograms.txt
+checking file Makefile
+Hunk #1 succeeded at 780 (offset 12 lines).
+checking file arch/Kconfig
+checking file arch/arm/Kconfig
+Hunk #1 succeeded at 33 with fuzz 2.
+Hunk #2 succeeded at 70 (offset 2 lines).
+checking file arch/arm/include/asm/switch_to.h
+checking file arch/arm/include/asm/thread_info.h
+checking file arch/arm/kernel/asm-offsets.c
+Hunk #1 succeeded at 55 (offset -10 lines).
+checking file arch/arm/kernel/entry-armv.S
+checking file arch/arm/kernel/entry-common.S
+checking file arch/arm/kernel/process.c
+Hunk #1 succeeded at 394 (offset 75 lines).
+checking file arch/arm/kernel/signal.c
+checking file arch/arm/kernel/smp.c
+checking file arch/arm/kernel/unwind.c
+checking file arch/arm/kvm/arm.c
+checking file arch/arm/kvm/psci.c
+checking file arch/arm/mach-at91/Kconfig
+checking file arch/arm/mach-at91/at91rm9200.c
+checking file arch/arm/mach-at91/at91sam9.c
+checking file arch/arm/mach-at91/generic.h
+checking file arch/arm/mach-at91/pm.c
+checking file arch/arm/mach-at91/sama5.c
+checking file arch/arm/mach-exynos/platsmp.c
+checking file arch/arm/mach-hisi/platmcpm.c
+checking file arch/arm/mach-imx/Kconfig
+checking file arch/arm/mach-omap2/omap-smp.c
+checking file arch/arm/mach-prima2/platsmp.c
+checking file arch/arm/mach-qcom/platsmp.c
+checking file arch/arm/mach-spear/platsmp.c
+checking file arch/arm/mach-sti/platsmp.c
+checking file arch/arm/mm/fault.c
+checking file arch/arm/mm/highmem.c
+checking file arch/arm/plat-versatile/platsmp.c
+checking file arch/arm64/Kconfig
+Hunk #1 succeeded at 81 (offset 5 lines).
+Hunk #2 succeeded at 601 (offset 38 lines).
+checking file arch/arm64/include/asm/thread_info.h
+Hunk #2 succeeded at 110 (offset 6 lines).
+Hunk #3 succeeded at 126 (offset 6 lines).
+Hunk #4 succeeded at 135 (offset 6 lines).
+checking file arch/arm64/kernel/asm-offsets.c
+Hunk #1 succeeded at 36 (offset 1 line).
+checking file arch/arm64/kernel/entry.S
+Hunk #1 succeeded at 411 with fuzz 2 (offset 48 lines).
+Hunk #2 succeeded at 434 (offset 48 lines).
+Hunk #3 succeeded at 681 with fuzz 2 (offset 50 lines).
+checking file arch/mips/Kconfig
+checking file arch/mips/kvm/mips.c
+checking file arch/powerpc/Kconfig
+checking file arch/powerpc/include/asm/kvm_host.h
+checking file arch/powerpc/include/asm/thread_info.h
+checking file arch/powerpc/kernel/asm-offsets.c
+checking file arch/powerpc/kernel/entry_32.S
+checking file arch/powerpc/kernel/entry_64.S
+checking file arch/powerpc/kernel/irq.c
+checking file arch/powerpc/kernel/misc_32.S
+checking file arch/powerpc/kernel/misc_64.S
+checking file arch/powerpc/kvm/Kconfig
+checking file arch/powerpc/kvm/book3s_hv.c
+checking file arch/powerpc/platforms/ps3/device-init.c
+checking file arch/s390/include/asm/kvm_host.h
+checking file arch/s390/kvm/interrupt.c
+checking file arch/sh/kernel/irq.c
+checking file arch/sparc/Kconfig
+checking file arch/sparc/kernel/irq_64.c
+checking file arch/x86/Kconfig
+Hunk #2 succeeded at 229 (offset 16 lines).
+Hunk #3 succeeded at 871 (offset 19 lines).
+checking file arch/x86/crypto/aesni-intel_glue.c
+checking file arch/x86/crypto/cast5_avx_glue.c
+checking file arch/x86/crypto/glue_helper.c
+checking file arch/x86/entry/common.c
+checking file arch/x86/entry/entry_32.S
+checking file arch/x86/entry/entry_64.S
+checking file arch/x86/include/asm/preempt.h
+checking file arch/x86/include/asm/signal.h
+checking file arch/x86/include/asm/stackprotector.h
+checking file arch/x86/include/asm/thread_info.h
+checking file arch/x86/include/asm/uv/uv_bau.h
+checking file arch/x86/include/asm/uv/uv_hub.h
+checking file arch/x86/kernel/apic/io_apic.c
+checking file arch/x86/kernel/apic/x2apic_uv_x.c
+checking file arch/x86/kernel/asm-offsets.c
+checking file arch/x86/kernel/cpu/mcheck/mce.c
+checking file arch/x86/kernel/cpu/perf_event_intel_rapl.c
+checking file arch/x86/kernel/dumpstack_32.c
+checking file arch/x86/kernel/dumpstack_64.c
+checking file arch/x86/kernel/irq_32.c
+checking file arch/x86/kernel/kvm.c
+checking file arch/x86/kernel/nmi.c
+checking file arch/x86/kernel/process_32.c
+checking file arch/x86/kernel/reboot.c
+checking file arch/x86/kvm/lapic.c
+checking file arch/x86/kvm/x86.c
+checking file arch/x86/mm/highmem_32.c
+checking file arch/x86/mm/iomap_32.c
+checking file arch/x86/platform/uv/tlb_uv.c
+checking file arch/x86/platform/uv/uv_time.c
+checking file block/blk-core.c
+checking file block/blk-ioc.c
+checking file block/blk-iopoll.c
+checking file block/blk-mq-cpu.c
+checking file block/blk-mq.c
+checking file block/blk-mq.h
+checking file block/blk-softirq.c
+checking file block/bounce.c
+checking file crypto/algapi.c
+checking file crypto/api.c
+checking file crypto/internal.h
+checking file drivers/acpi/acpica/acglobal.h
+checking file drivers/acpi/acpica/hwregs.c
+checking file drivers/acpi/acpica/hwxface.c
+checking file drivers/acpi/acpica/utmutex.c
+checking file drivers/ata/libata-sff.c
+checking file drivers/block/zram/zram_drv.c
+checking file drivers/block/zram/zram_drv.h
+checking file drivers/char/random.c
+checking file drivers/clk/at91/clk-generated.c
+checking file drivers/clk/at91/clk-h32mx.c
+checking file drivers/clk/at91/clk-main.c
+checking file drivers/clk/at91/clk-master.c
+checking file drivers/clk/at91/clk-peripheral.c
+checking file drivers/clk/at91/clk-pll.c
+checking file drivers/clk/at91/clk-plldiv.c
+checking file drivers/clk/at91/clk-programmable.c
+checking file drivers/clk/at91/clk-slow.c
+checking file drivers/clk/at91/clk-smd.c
+checking file drivers/clk/at91/clk-system.c
+checking file drivers/clk/at91/clk-usb.c
+checking file drivers/clk/at91/clk-utmi.c
+checking file drivers/clk/at91/pmc.c
+checking file drivers/clk/at91/pmc.h
+checking file drivers/clocksource/tcb_clksrc.c
+checking file drivers/clocksource/timer-atmel-pit.c
+checking file drivers/clocksource/timer-atmel-st.c
+checking file drivers/cpufreq/Kconfig.x86
+checking file drivers/cpuidle/coupled.c
+checking file drivers/gpu/drm/i915/i915_gem_execbuffer.c
+checking file drivers/gpu/drm/i915/i915_gem_shrinker.c
+checking file drivers/gpu/drm/i915/i915_irq.c
+checking file drivers/gpu/drm/i915/intel_display.c
+checking file drivers/gpu/drm/i915/intel_sprite.c
+checking file drivers/gpu/drm/radeon/radeon_display.c
+checking file drivers/i2c/busses/i2c-omap.c
+checking file drivers/ide/alim15x3.c
+checking file drivers/ide/hpt366.c
+checking file drivers/ide/ide-io-std.c
+checking file drivers/ide/ide-io.c
+checking file drivers/ide/ide-iops.c
+checking file drivers/ide/ide-probe.c
+checking file drivers/ide/ide-taskfile.c
+checking file drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+checking file drivers/input/gameport/gameport.c
+checking file drivers/iommu/amd_iommu.c
+checking file drivers/leds/trigger/Kconfig
+checking file drivers/md/bcache/Kconfig
+checking file drivers/md/dm.c
+checking file drivers/md/raid5.c
+checking file drivers/md/raid5.h
+checking file drivers/media/platform/vsp1/vsp1_video.c
+checking file drivers/misc/Kconfig
+Hunk #1 succeeded at 61 (offset 7 lines).
+Hunk #2 succeeded at 77 (offset 7 lines).
+Hunk #3 succeeded at 91 (offset 7 lines).
+Hunk #4 succeeded at 129 (offset 7 lines).
+checking file drivers/misc/Makefile
+Hunk #1 succeeded at 40 (offset 1 line).
+checking file drivers/misc/hwlat_detector.c
+checking file drivers/mmc/host/mmci.c
+checking file drivers/net/ethernet/3com/3c59x.c
+checking file drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+checking file drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+checking file drivers/net/ethernet/chelsio/cxgb/sge.c
+checking file drivers/net/ethernet/neterion/s2io.c
+checking file drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+checking file drivers/net/ethernet/realtek/8139too.c
+checking file drivers/net/ethernet/tehuti/tehuti.c
+checking file drivers/net/rionet.c
+checking file drivers/net/wireless/orinoco/orinoco_usb.c
+checking file drivers/pci/access.c
+checking file drivers/scsi/fcoe/fcoe.c
+checking file drivers/scsi/fcoe/fcoe_ctlr.c
+checking file drivers/scsi/libfc/fc_exch.c
+checking file drivers/scsi/libsas/sas_ata.c
+checking file drivers/scsi/qla2xxx/qla_inline.h
+checking file drivers/thermal/x86_pkg_temp_thermal.c
+checking file drivers/tty/serial/8250/8250_core.c
+checking file drivers/tty/serial/8250/8250_port.c
+checking file drivers/tty/serial/amba-pl011.c
+checking file drivers/tty/serial/omap-serial.c
+checking file drivers/tty/serial/sc16is7xx.c
+checking file drivers/usb/core/hcd.c
+checking file drivers/usb/gadget/function/f_fs.c
+checking file drivers/usb/gadget/legacy/inode.c
+checking file drivers/usb/gadget/udc/atmel_usba_udc.c
+checking file drivers/usb/gadget/udc/atmel_usba_udc.h
+checking file fs/aio.c
+checking file fs/autofs4/autofs_i.h
+checking file fs/autofs4/expire.c
+checking file fs/buffer.c
+checking file fs/dcache.c
+checking file fs/eventpoll.c
+Hunk #1 succeeded at 506 (offset 1 line).
+checking file fs/exec.c
+checking file fs/f2fs/f2fs.h
+checking file fs/jbd2/checkpoint.c
+checking file fs/namespace.c
+checking file fs/ntfs/aops.c
+checking file fs/timerfd.c
+checking file include/acpi/platform/aclinux.h
+checking file include/asm-generic/bug.h
+checking file include/asm-generic/preempt.h
+checking file include/linux/blk-mq.h
+checking file include/linux/blkdev.h
+checking file include/linux/bottom_half.h
+checking file include/linux/buffer_head.h
+checking file include/linux/cgroup-defs.h
+checking file include/linux/clk/at91_pmc.h
+checking file include/linux/completion.h
+checking file include/linux/cpu.h
+checking file include/linux/delay.h
+checking file include/linux/ftrace.h
+checking file include/linux/highmem.h
+checking file include/linux/hrtimer.h
+checking file include/linux/idr.h
+checking file include/linux/init_task.h
+checking file include/linux/interrupt.h
+checking file include/linux/irq.h
+checking file include/linux/irq_work.h
+checking file include/linux/irqdesc.h
+Hunk #1 succeeded at 61 with fuzz 1.
+checking file include/linux/irqflags.h
+checking file include/linux/jbd2.h
+checking file include/linux/kdb.h
+checking file include/linux/kernel.h
+checking file include/linux/kvm_host.h
+checking file include/linux/lglock.h
+checking file include/linux/list_bl.h
+checking file include/linux/locallock.h
+checking file include/linux/mm_types.h
+Hunk #2 succeeded at 512 (offset 7 lines).
+checking file include/linux/mutex.h
+checking file include/linux/mutex_rt.h
+checking file include/linux/netdevice.h
+checking file include/linux/netfilter/x_tables.h
+checking file include/linux/notifier.h
+checking file include/linux/percpu.h
+checking file include/linux/pid.h
+checking file include/linux/preempt.h
+checking file include/linux/printk.h
+checking file include/linux/radix-tree.h
+checking file include/linux/random.h
+checking file include/linux/rbtree.h
+checking file include/linux/rcupdate.h
+checking file include/linux/rcutree.h
+checking file include/linux/rtmutex.h
+checking file include/linux/rwlock_rt.h
+checking file include/linux/rwlock_types.h
+checking file include/linux/rwlock_types_rt.h
+checking file include/linux/rwsem.h
+checking file include/linux/rwsem_rt.h
+checking file include/linux/sched.h
+Hunk #5 succeeded at 979 (offset 8 lines).
+Hunk #6 succeeded at 1420 (offset 30 lines).
+Hunk #7 succeeded at 1457 (offset 30 lines).
+Hunk #8 succeeded at 1570 (offset 30 lines).
+Hunk #9 succeeded at 1589 (offset 30 lines).
+Hunk #10 succeeded at 1622 (offset 30 lines).
+Hunk #11 succeeded at 1854 (offset 30 lines).
+Hunk #12 succeeded at 1876 (offset 30 lines).
+Hunk #13 succeeded at 1910 (offset 30 lines).
+Hunk #14 succeeded at 2099 (offset 30 lines).
+Hunk #15 succeeded at 2115 (offset 30 lines).
+Hunk #16 succeeded at 2154 (offset 30 lines).
+Hunk #17 succeeded at 2319 (offset 30 lines).
+Hunk #18 succeeded at 2335 (offset 30 lines).
+Hunk #19 succeeded at 2547 (offset 30 lines).
+Hunk #20 succeeded at 2671 (offset 30 lines).
+Hunk #21 succeeded at 2998 (offset 30 lines).
+Hunk #22 succeeded at 3066 (offset 30 lines).
+Hunk #23 succeeded at 3132 (offset 30 lines).
+Hunk #24 succeeded at 3303 (offset 30 lines).
+checking file include/linux/seqlock.h
+checking file include/linux/signal.h
+checking file include/linux/skbuff.h
+checking file include/linux/smp.h
+checking file include/linux/spinlock.h
+checking file include/linux/spinlock_api_smp.h
+checking file include/linux/spinlock_rt.h
+checking file include/linux/spinlock_types.h
+checking file include/linux/spinlock_types_nort.h
+checking file include/linux/spinlock_types_raw.h
+checking file include/linux/spinlock_types_rt.h
+checking file include/linux/srcu.h
+checking file include/linux/suspend.h
+checking file include/linux/swait.h
+checking file include/linux/swap.h
+checking file include/linux/swork.h
+checking file include/linux/thread_info.h
+checking file include/linux/timer.h
+checking file include/linux/trace_events.h
+checking file include/linux/uaccess.h
+checking file include/linux/uprobes.h
+checking file include/linux/vmstat.h
+checking file include/linux/wait.h
+checking file include/net/dst.h
+checking file include/net/neighbour.h
+checking file include/net/netns/ipv4.h
+checking file include/trace/events/hist.h
+checking file include/trace/events/latency_hist.h
+checking file include/trace/events/writeback.h
+checking file init/Kconfig
+Hunk #4 succeeded at 1123 (offset 17 lines).
+Hunk #5 succeeded at 1763 (offset 43 lines).
+Hunk #6 succeeded at 1782 (offset 43 lines).
+Hunk #7 succeeded at 1792 (offset 43 lines).
+checking file init/Makefile
+Hunk #1 succeeded at 30 (offset -3 lines).
+checking file init/main.c
+Hunk #1 succeeded at 527 (offset -3 lines).
+checking file ipc/msg.c
+checking file ipc/sem.c
+checking file kernel/Kconfig.locks
+checking file kernel/Kconfig.preempt
+checking file kernel/cgroup.c
+Hunk #1 succeeded at 4792 (offset 55 lines).
+Hunk #2 succeeded at 4834 (offset 55 lines).
+Hunk #3 succeeded at 5452 (offset 55 lines).
+checking file kernel/cpu.c
+Hunk #1 succeeded at 77 (offset 2 lines).
+Hunk #2 succeeded at 91 (offset 2 lines).
+Hunk #3 succeeded at 623 (offset 2 lines).
+Hunk #4 succeeded at 639 (offset 2 lines).
+Hunk #5 succeeded at 692 (offset 2 lines).
+checking file kernel/debug/kdb/kdb_io.c
+Hunk #1 succeeded at 562 (offset 8 lines).
+Hunk #2 succeeded at 572 (offset 8 lines).
+Hunk #3 succeeded at 860 (offset 8 lines).
+Hunk #4 succeeded at 869 (offset 8 lines).
+checking file kernel/events/core.c
+Hunk #1 succeeded at 807 (offset 5 lines).
+Hunk #2 succeeded at 7359 (offset 139 lines).
+checking file kernel/exit.c
+checking file kernel/fork.c
+Hunk #5 succeeded at 1245 (offset 1 line).
+Hunk #6 succeeded at 1373 (offset 1 line).
+checking file kernel/futex.c
+checking file kernel/irq/handle.c
+checking file kernel/irq/irqdesc.c
+checking file kernel/irq/manage.c
+checking file kernel/irq/settings.h
+checking file kernel/irq/spurious.c
+checking file kernel/irq_work.c
+checking file kernel/ksysfs.c
+checking file kernel/locking/Makefile
+checking file kernel/locking/lglock.c
+checking file kernel/locking/lockdep.c
+checking file kernel/locking/locktorture.c
+checking file kernel/locking/rt.c
+checking file kernel/locking/rtmutex.c
+checking file kernel/locking/rtmutex_common.h
+checking file kernel/locking/spinlock.c
+checking file kernel/locking/spinlock_debug.c
+checking file kernel/panic.c
+Hunk #1 succeeded at 64 (offset 3 lines).
+Hunk #2 succeeded at 105 (offset 3 lines).
+Hunk #3 succeeded at 128 (offset 3 lines).
+Hunk #4 succeeded at 442 (offset 3 lines).
+checking file kernel/power/hibernate.c
+checking file kernel/power/suspend.c
+Hunk #1 succeeded at 372 (offset 13 lines).
+Hunk #2 succeeded at 393 (offset 16 lines).
+Hunk #3 succeeded at 551 with fuzz 1 (offset 29 lines).
+checking file kernel/printk/printk.c
+Hunk #1 succeeded at 245 (offset 4 lines).
+Hunk #2 succeeded at 1266 (offset 4 lines).
+Hunk #3 succeeded at 1278 (offset 4 lines).
+Hunk #4 succeeded at 1306 (offset 4 lines).
+Hunk #5 succeeded at 1327 (offset 4 lines).
+Hunk #6 succeeded at 1375 (offset 4 lines).
+Hunk #7 succeeded at 1531 (offset 4 lines).
+Hunk #8 succeeded at 1552 (offset 4 lines).
+Hunk #9 succeeded at 1613 (offset 4 lines).
+Hunk #10 succeeded at 1776 (offset 4 lines).
+Hunk #11 succeeded at 1928 (offset 8 lines).
+Hunk #12 succeeded at 1936 (offset 8 lines).
+Hunk #13 succeeded at 2075 (offset 8 lines).
+Hunk #14 succeeded at 2296 (offset 8 lines).
+Hunk #15 succeeded at 2415 (offset 8 lines).
+Hunk #16 succeeded at 2477 (offset 8 lines).
+checking file kernel/ptrace.c
+checking file kernel/rcu/rcutorture.c
+checking file kernel/rcu/tree.c
+checking file kernel/rcu/tree.h
+checking file kernel/rcu/tree_plugin.h
+checking file kernel/rcu/update.c
+checking file kernel/relay.c
+checking file kernel/sched/Makefile
+checking file kernel/sched/completion.c
+checking file kernel/sched/core.c
+Hunk #21 succeeded at 3079 (offset 40 lines).
+Hunk #22 succeeded at 3100 (offset 40 lines).
+Hunk #23 succeeded at 3127 (offset 40 lines).
+Hunk #24 succeeded at 3182 (offset 40 lines).
+Hunk #25 succeeded at 3377 (offset 40 lines).
+Hunk #26 succeeded at 3386 (offset 40 lines).
+Hunk #27 succeeded at 3408 (offset 40 lines).
+Hunk #28 succeeded at 3429 (offset 40 lines).
+Hunk #29 succeeded at 3445 (offset 40 lines).
+Hunk #30 succeeded at 3494 (offset 40 lines).
+Hunk #31 succeeded at 3532 (offset 40 lines).
+Hunk #32 succeeded at 3560 (offset 40 lines).
+Hunk #33 succeeded at 3571 (offset 40 lines).
+Hunk #34 succeeded at 4924 (offset 40 lines).
+Hunk #35 succeeded at 4938 (offset 40 lines).
+Hunk #36 succeeded at 5305 (offset 40 lines).
+Hunk #37 succeeded at 5448 (offset 40 lines).
+Hunk #38 succeeded at 5464 (offset 40 lines).
+Hunk #39 succeeded at 5904 (offset 103 lines).
+Hunk #40 succeeded at 7976 (offset 188 lines).
+checking file kernel/sched/cpudeadline.c
+checking file kernel/sched/cpupri.c
+checking file kernel/sched/cputime.c
+checking file kernel/sched/deadline.c
+Hunk #1 succeeded at 152 (offset 18 lines).
+Hunk #2 succeeded at 162 (offset 18 lines).
+Hunk #3 succeeded at 718 (offset 21 lines).
+Hunk #4 succeeded at 1009 (offset 19 lines).
+Hunk #5 succeeded at 1087 (offset 19 lines).
+Hunk #6 succeeded at 1110 (offset 19 lines).
+Hunk #7 succeeded at 1118 (offset 19 lines).
+Hunk #8 succeeded at 1232 (offset 19 lines).
+Hunk #9 succeeded at 1359 (offset 23 lines).
+Hunk #10 succeeded at 1465 (offset 23 lines).
+Hunk #11 succeeded at 1504 (offset 23 lines).
+Hunk #12 succeeded at 1543 (offset 23 lines).
+Hunk #13 succeeded at 1694 (offset 27 lines).
+Hunk #14 succeeded at 1799 (offset 29 lines).
+checking file kernel/sched/debug.c
+checking file kernel/sched/fair.c
+Hunk #1 succeeded at 3175 (offset 25 lines).
+Hunk #2 succeeded at 3199 (offset 25 lines).
+Hunk #3 succeeded at 3339 (offset 25 lines).
+Hunk #4 succeeded at 3521 (offset 25 lines).
+Hunk #5 succeeded at 4133 (offset 25 lines).
+Hunk #6 succeeded at 5852 (offset 655 lines).
+Hunk #7 succeeded at 8779 (offset 831 lines).
+Hunk #8 succeeded at 8804 (offset 831 lines).
+checking file kernel/sched/features.h
+checking file kernel/sched/rt.c
+Hunk #9 succeeded at 1563 (offset 44 lines).
+Hunk #10 succeeded at 1613 (offset 44 lines).
+Hunk #11 succeeded at 1745 (offset 44 lines).
+Hunk #12 succeeded at 2105 (offset 44 lines).
+Hunk #13 succeeded at 2180 (offset 44 lines).
+checking file kernel/sched/sched.h
+Hunk #1 succeeded at 1120 (offset 20 lines).
+Hunk #2 succeeded at 1341 (offset 41 lines).
+checking file kernel/sched/swait.c
+checking file kernel/sched/swork.c
+checking file kernel/signal.c
+checking file kernel/softirq.c
+checking file kernel/stop_machine.c
+checking file kernel/time/hrtimer.c
+checking file kernel/time/itimer.c
+checking file kernel/time/jiffies.c
+checking file kernel/time/ntp.c
+checking file kernel/time/posix-cpu-timers.c
+checking file kernel/time/posix-timers.c
+checking file kernel/time/tick-broadcast-hrtimer.c
+checking file kernel/time/tick-common.c
+checking file kernel/time/tick-sched.c
+checking file kernel/time/timekeeping.c
+checking file kernel/time/timekeeping.h
+checking file kernel/time/timer.c
+checking file kernel/trace/Kconfig
+Hunk #1 succeeded at 190 (offset 3 lines).
+Hunk #2 succeeded at 232 (offset 3 lines).
+Hunk #3 succeeded at 260 (offset 3 lines).
+checking file kernel/trace/Makefile
+checking file kernel/trace/latency_hist.c
+checking file kernel/trace/trace.c
+Hunk #1 succeeded at 1672 (offset 20 lines).
+Hunk #2 succeeded at 1682 (offset 20 lines).
+Hunk #3 succeeded at 2579 (offset 20 lines).
+Hunk #4 succeeded at 2622 with fuzz 1 (offset 27 lines).
+checking file kernel/trace/trace.h
+checking file kernel/trace/trace_events.c
+checking file kernel/trace/trace_irqsoff.c
+checking file kernel/trace/trace_output.c
+checking file kernel/user.c
+checking file kernel/watchdog.c
+Hunk #1 succeeded at 374 with fuzz 2 (offset 75 lines).
+Hunk #2 succeeded at 410 (offset 75 lines).
+Hunk #3 succeeded at 434 (offset 75 lines).
+Hunk #4 succeeded at 585 (offset 78 lines).
+checking file kernel/workqueue.c
+checking file kernel/workqueue_internal.h
+checking file lib/Kconfig
+checking file lib/debugobjects.c
+checking file lib/idr.c
+checking file lib/locking-selftest.c
+checking file lib/percpu_ida.c
+checking file lib/radix-tree.c
+checking file lib/rbtree.c
+checking file lib/scatterlist.c
+checking file lib/smp_processor_id.c
+checking file localversion-rt
+checking file mm/Kconfig
+checking file mm/backing-dev.c
+checking file mm/compaction.c
+checking file mm/filemap.c
+checking file mm/highmem.c
+checking file mm/memcontrol.c
+Hunk #7 succeeded at 5431 (offset 11 lines).
+Hunk #8 succeeded at 5490 (offset 11 lines).
+Hunk #9 succeeded at 5689 (offset 11 lines).
+Hunk #10 succeeded at 5718 (offset 11 lines).
+checking file mm/mmu_context.c
+checking file mm/page_alloc.c
+Hunk #2 succeeded at 277 (offset 12 lines).
+Hunk #3 succeeded at 811 (offset 12 lines).
+Hunk #4 succeeded at 822 (offset 12 lines).
+Hunk #5 succeeded at 884 (offset 12 lines).
+Hunk #6 succeeded at 892 (offset 12 lines).
+Hunk #7 succeeded at 906 (offset 12 lines).
+Hunk #8 succeeded at 918 (offset 12 lines).
+Hunk #9 succeeded at 1069 (offset 12 lines).
+Hunk #10 succeeded at 1929 (offset 12 lines).
+Hunk #11 succeeded at 1956 (offset 12 lines).
+Hunk #12 succeeded at 2056 (offset 12 lines).
+Hunk #13 succeeded at 2122 (offset 12 lines).
+Hunk #14 succeeded at 2148 (offset 12 lines).
+Hunk #15 succeeded at 2293 (offset 12 lines).
+Hunk #16 succeeded at 2325 (offset 12 lines).
+Hunk #17 succeeded at 2335 (offset 12 lines).
+Hunk #18 succeeded at 2351 (offset 12 lines).
+Hunk #19 succeeded at 6023 (offset 12 lines).
+Hunk #20 succeeded at 6924 (offset 18 lines).
+Hunk #21 succeeded at 6933 (offset 18 lines).
+checking file mm/slab.h
+checking file mm/slub.c
+checking file mm/swap.c
+checking file mm/truncate.c
+checking file mm/vmalloc.c
+checking file mm/vmstat.c
+checking file mm/workingset.c
+checking file mm/zsmalloc.c
+checking file net/core/dev.c
+checking file net/core/skbuff.c
+checking file net/core/sock.c
+checking file net/ipv4/icmp.c
+checking file net/ipv4/sysctl_net_ipv4.c
+Hunk #1 succeeded at 840 (offset 22 lines).
+checking file net/mac80211/rx.c
+checking file net/netfilter/core.c
+checking file net/packet/af_packet.c
+checking file net/rds/ib_rdma.c
+checking file net/sched/sch_generic.c
+checking file net/sunrpc/svc_xprt.c
+checking file scripts/mkcompile_h
+checking file sound/core/pcm_native.c
+checking file virt/kvm/async_pf.c
+checking file virt/kvm/kvm_main.c
